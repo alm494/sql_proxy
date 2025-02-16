@@ -35,7 +35,7 @@ func CreateConnection(w http.ResponseWriter, r *http.Request) {
 
 func CloseConnection(w http.ResponseWriter, r *http.Request) {
 	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
+	if err != nil || len(bodyBytes) == 0 {
 		http.Error(w, "Error reading request body", http.StatusBadRequest)
 		return
 	}
