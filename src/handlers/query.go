@@ -62,7 +62,21 @@ func GetQuery(w http.ResponseWriter, r *http.Request) {
 }
 
 func ExecuteQuery(w http.ResponseWriter, r *http.Request) {
-	// to do
+	var payload ExecuteQueryEnvelope
+	err := json.NewDecoder(r.Body).Decode(&payload)
+	if err != nil {
+		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		return
+	}
+	conn, ok := db.DbHandler.GetById(payload.Conn, true)
+	if !ok {
+		http.Error(w, "Invalid connection id", http.StatusBadRequest)
+		return
+	}
+	_, err = conn.Exec(payload.SQL)
+	if err != nil {
+		http.Error(w, "Invalid SQL query", http.StatusBadRequest)
+	}
 }
 
 // Converts SQL query result to json
