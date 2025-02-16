@@ -5,19 +5,13 @@ import (
 	"database/sql"
 	"fmt"
 	"net/url"
-	"sql-proxy/src/utils"
-	"sync"
+	"sql-proxy/src/app"
+
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 )
-
-// Class model to keep open SQL connections in the pool
-// with concurrent read/write access
-type DbList struct {
-	items sync.Map
-}
 
 // Gets SQL server connection by GUID
 func (o *DbList) GetById(guid string, updateTimestamp bool) (*sql.DB, bool) {
@@ -30,7 +24,7 @@ func (o *DbList) GetById(guid string, updateTimestamp bool) (*sql.DB, bool) {
 		}
 		return res.DB, true
 	}
-	utils.Log.Error(fmt.Sprintf("SQL connection with guid='%s' not found", guid))
+	app.Log.Error(fmt.Sprintf("SQL connection with guid='%s' not found", guid))
 	return nil, false
 }
 
@@ -40,7 +34,7 @@ func (o *DbList) GetByParams(connInfo *DbConnInfo) (string, bool) {
 	hash, err := connInfo.GetHash()
 	if err != nil {
 		errMsg := "Hash calculation failed"
-		utils.Log.WithError(err).Error(errMsg)
+		app.Log.WithError(err).Error(errMsg)
 		return errMsg, false
 	}
 
@@ -50,7 +44,7 @@ func (o *DbList) GetByParams(connInfo *DbConnInfo) (string, bool) {
 		func(key, value interface{}) bool {
 			if bytes.Equal(value.(*DbConn).Hash[:], hash[:]) {
 				guid = key.(string)
-				utils.Log.Debug(fmt.Sprintf("DB connection with id %s found in the pool", guid))
+				app.Log.Debug(fmt.Sprintf("DB connection with id %s found in the pool", guid))
 				return false // stop iteraton
 			}
 			return true // continue iteration
@@ -67,7 +61,7 @@ func (o *DbList) GetByParams(connInfo *DbConnInfo) (string, bool) {
 			} else {
 				// Remove dead connection from the pool
 				o.items.Delete(guid)
-				utils.Log.Debug(fmt.Sprintf("DB connection with id %s is dead and removed from the pool", guid))
+				app.Log.Debug(fmt.Sprintf("DB connection with id %s is dead and removed from the pool", guid))
 			}
 
 		}
@@ -100,7 +94,7 @@ func (o *DbList) getNewConnection(connInfo *DbConnInfo, hash [32]byte) (string, 
 			connInfo.User, encodedPassword, connInfo.Host, connInfo.Port, connInfo.DbName)
 	default:
 		errMsg := fmt.Sprintf("No suitable driver implemented for server type '%s'", connInfo.DbType)
-		utils.Log.Error(errMsg)
+		app.Log.Error(errMsg)
 		return errMsg, false
 	}
 
@@ -113,7 +107,7 @@ func (o *DbList) getNewConnection(connInfo *DbConnInfo, hash [32]byte) (string, 
 	// 3. Check for failure
 	if err != nil {
 		errMsg := "Error establishing SQL server connection"
-		utils.Log.WithError(err).Error(errMsg)
+		app.Log.WithError(err).Error(errMsg)
 		return errMsg, false
 	}
 
@@ -121,7 +115,7 @@ func (o *DbList) getNewConnection(connInfo *DbConnInfo, hash [32]byte) (string, 
 	err = newDb.Ping()
 	if err != nil {
 		errMsg := "Just created SQL connection is dead"
-		utils.Log.WithError(err).Error(errMsg)
+		app.Log.WithError(err).Error(errMsg)
 		return errMsg, false
 	}
 
@@ -135,7 +129,7 @@ func (o *DbList) getNewConnection(connInfo *DbConnInfo, hash [32]byte) (string, 
 
 	o.items.Store(newId, &newItem)
 
-	utils.Log.WithFields(logrus.Fields{
+	app.Log.WithFields(logrus.Fields{
 		"Host":   connInfo.Host,
 		"Port":   connInfo.Port,
 		"dbName": connInfo.DbName,
@@ -153,7 +147,7 @@ func (o *DbList) RunMaintenance() {
 
 	for {
 		<-ticker.C
-		utils.Log.Debug("Regular task: checking if pooled SQL connections are alive...")
+		app.Log.Debug("Regular task: checking if pooled SQL connections are alive...")
 
 		// detect dead connections
 		var deadItems []string
@@ -173,7 +167,7 @@ func (o *DbList) RunMaintenance() {
 				conn.Close()
 				o.Delete(item)
 			}
-			utils.Log.Debug(fmt.Sprintf("Regular task: %d dead connections removed", len(deadItems)))
+			app.Log.Debug(fmt.Sprintf("Regular task: %d dead connections removed", len(deadItems)))
 		}
 
 	}

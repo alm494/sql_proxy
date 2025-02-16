@@ -5,39 +5,39 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"sql-proxy/src/app"
 	"sql-proxy/src/db"
-	"sql-proxy/src/utils"
 
 	"github.com/sirupsen/logrus"
 )
 
-func GetQuery(w http.ResponseWriter, r *http.Request) {
+func SelectQuery(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query().Get("query")
 	conn := r.URL.Query().Get("conn")
 	if query == "" || conn == "" {
 		errorText := "Missing parameter"
-		utils.Log.Error(errorText)
+		app.Log.Error(errorText)
 		http.Error(w, errorText, http.StatusBadRequest)
 		return
 	}
 
-	utils.Log.WithFields(logrus.Fields{
+	app.Log.WithFields(logrus.Fields{
 		"query": query,
 		"conn":  conn,
 	}).Debug("SQL query received:")
 
 	// Search existings connection in the pool
-	dbConn, ok := db.DbHandler.GetById(conn, true)
+	dbConn, ok := db.Handler.GetById(conn, true)
 	if !ok {
 		errorText := "Failed to get SQL connection"
-		utils.Log.Error(errorText, ": ", conn)
+		app.Log.Error(errorText, ": ", conn)
 		http.Error(w, errorText, http.StatusForbidden)
 		return
 	}
 
 	rows, err := dbConn.Query(query)
 	if err != nil {
-		utils.Log.WithError(err).Error("SQL query error")
+		app.Log.WithError(err).Error("SQL query error")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -45,7 +45,7 @@ func GetQuery(w http.ResponseWriter, r *http.Request) {
 
 	columns, err := rows.Columns()
 	if err != nil {
-		utils.Log.WithError(err).Error("Invalid query return value")
+		app.Log.WithError(err).Error("Invalid query return value")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -68,7 +68,7 @@ func ExecuteQuery(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
 		return
 	}
-	conn, ok := db.DbHandler.GetById(payload.Conn, true)
+	conn, ok := db.Handler.GetById(payload.Conn, true)
 	if !ok {
 		http.Error(w, "Invalid connection id", http.StatusBadRequest)
 		return

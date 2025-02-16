@@ -35,8 +35,8 @@ prod: clean
 	@echo "Building $(PROJECT_NAME) or production..."
 	GOOS=${GOOS} GOARCH=${GOARCH} go build $(TAGS) \
 		-ldflags="-s -w \
-		-X ${PROJECT_NAME}/src/version.BuildVersion=${BUILD_VERSION} \
-		-X ${PROJECT_NAME}/src/version.BuildTime=${BUILD_TIME}" -o $(BUILD_DIR)/$(PROJECT_NAME) $(GO_FILES)
+		-X ${PROJECT_NAME}/src/app.BuildVersion=${BUILD_VERSION} \
+		-X ${PROJECT_NAME}/src/app.BuildTime=${BUILD_TIME}" -o $(BUILD_DIR)/$(PROJECT_NAME) $(GO_FILES)
 	@echo "Production build completed."
 
 # Build for debugging
@@ -44,8 +44,8 @@ debug: clean
 	@echo "Building $(PROJECT_NAME) or production..."
 	GOOS=${GOOS} GOARCH=${GOARCH} go build $(TAGS) \
 		-ldflags="\
-		-X ${PROJECT_NAME}/src/version.BuildVersion=${BUILD_VERSION}-debug \
-		-X ${PROJECT_NAME}/src/version.BuildTime=${BUILD_TIME}" -o $(BUILD_DIR)/$(PROJECT_NAME)-debug $(GO_FILES)
+		-X ${PROJECT_NAME}/src/app.BuildVersion=${BUILD_VERSION}-debug \
+		-X ${PROJECT_NAME}/src/app.BuildTime=${BUILD_TIME}" -o $(BUILD_DIR)/$(PROJECT_NAME)-debug $(GO_FILES)
 	@echo "Debug build completed."
 
 # Run

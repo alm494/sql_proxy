@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"sql-proxy/src/app"
 	"sql-proxy/src/db"
-	"sql-proxy/src/utils"
 )
 
 func CreateConnection(w http.ResponseWriter, r *http.Request) {
@@ -14,16 +14,16 @@ func CreateConnection(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&dbConnInfo)
 	if err != nil {
 		errorMsg := "Error decoding JSON"
-		utils.Log.Error(errorMsg)
+		app.Log.Error(errorMsg)
 		http.Error(w, errorMsg, http.StatusBadRequest)
 		return
 	}
 
-	connGuid, ok := db.DbHandler.GetByParams(&dbConnInfo)
+	connGuid, ok := db.Handler.GetByParams(&dbConnInfo)
 
 	if !ok {
 		errorMsg := "Failed to get SQL connection"
-		utils.Log.Error(errorMsg)
+		app.Log.Error(errorMsg)
 		http.Error(w, errorMsg, http.StatusInternalServerError)
 	} else {
 		_, err := w.Write([]byte(connGuid))
@@ -40,5 +40,5 @@ func CloseConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer r.Body.Close()
-	db.DbHandler.Delete(string(bodyBytes))
+	db.Handler.Delete(string(bodyBytes))
 }
