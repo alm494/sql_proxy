@@ -16,14 +16,15 @@ type DbList struct {
 type DbConn struct {
 	Hash      [32]byte  // Hash, as sql.DB does not store credentials
 	DB        *sql.DB   // SQL server connection pool (provided by the driver)
-	Timestamp time.Time // Last use (TO DO!)
+	Timestamp time.Time // Last use
 	Stmt      []DbStmt  // Prepared SQL statements
 }
 
 // Keeps SQL prepared statement information
 type DbStmt struct {
-	Id   string
-	Stmt *sql.Stmt
+	Id        string
+	Stmt      *sql.Stmt
+	Timestamp time.Time // Last use
 }
 
 // Keeps SQL connection string information

@@ -214,32 +214,59 @@ func (o *DbList) RunMaintenance() {
 
 	for {
 		<-ticker.C
-		app.Log.Debug("Regular task: checking if pooled SQL connections are alive...")
 
 		// detect dead connections
 		var deadItems []string
-		var count int
+		var countConn, countDeadConn, countStmt int
+
 		o.items.Range(
 			func(key, value interface{}) bool {
-				count++
-				err := value.(*DbConn).DB.Ping()
+				var lostStmts []string
+				countConn++
+				dbConn := value.(*DbConn)
+
+				err := dbConn.DB.Ping()
 				if err != nil {
+					// dead connection
 					deadItems = append(deadItems, key.(string))
+					countDeadConn++
+				} else if time.Since(dbConn.Timestamp).Abs().Minutes() > 20 {
+					// connection not used for last 20 minutes
+					deadItems = append(deadItems, key.(string))
+					countDeadConn++
 				}
+
+				for _, stmt := range dbConn.Stmt {
+					// prepared statements not used last 20 minutes
+					if time.Since(stmt.Timestamp).Abs().Minutes() > 20 {
+						lostStmts = append(lostStmts, stmt.Id)
+						countStmt++
+					}
+				}
+
+				// delete lost prepared statements
+				for _, lost := range lostStmts {
+					for i := 0; i < len(dbConn.Stmt); i++ {
+						if dbConn.Stmt[i].Id == lost {
+							dbConn.Stmt[i].Stmt.Close()
+							dbConn.Stmt = append(dbConn.Stmt[:i], dbConn.Stmt[i+1:]...)
+							break
+						}
+					}
+				}
+
 				return true // continue iteration
 			})
 
-		app.Log.Debug(fmt.Sprintf("Regular task: pool size = %d", count))
-
 		// remove dead connections
-		if len(deadItems) > 0 {
-			for _, item := range deadItems {
-				conn, _ := o.GetById(item, false)
-				conn.Close()
-				o.Delete(item)
-			}
-			app.Log.Debug(fmt.Sprintf("Regular task: %d dead connections removed", len(deadItems)))
+		for _, item := range deadItems {
+			conn, _ := o.GetById(item, false)
+			conn.Close()
+			o.Delete(item)
 		}
 
+		app.Log.Debug(fmt.Sprintf("Regular task: SQL connection pool size = %d", countConn))
+		app.Log.Debug(fmt.Sprintf("Regular task: %d dead connections removed", countDeadConn))
+		app.Log.Debug(fmt.Sprintf("Regular task: %d lost prepared statements removed", countStmt))
 	}
 }
