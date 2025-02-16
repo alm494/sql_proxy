@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"sql-proxy/src/db"
 	"sql-proxy/src/utils"
@@ -33,5 +34,11 @@ func CreateConnection(w http.ResponseWriter, r *http.Request) {
 }
 
 func CloseConnection(w http.ResponseWriter, r *http.Request) {
-	// to do
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Error reading request body", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+	db.DbHandler.Delete(string(bodyBytes))
 }

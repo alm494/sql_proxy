@@ -51,9 +51,9 @@ func (o *DbList) GetByParams(connInfo *DbConnInfo) (string, bool) {
 			if bytes.Equal(value.(*DbConn).Hash[:], hash[:]) {
 				guid = key.(string)
 				utils.Log.Debug(fmt.Sprintf("DB connection with id %s found in the pool", guid))
-				return false
+				return false // stop iteraton
 			}
-			return true
+			return true // continue iteration
 		})
 
 	// Step 2. Perform checks and return guid if passed
@@ -155,8 +155,27 @@ func (o *DbList) RunMaintenance() {
 		<-ticker.C
 		utils.Log.Debug("Regular task: checking if pooled SQL connections are alive...")
 
-		// to do: detect and remove dead connections
-		//for o.items.Range()
+		// detect dead connections
+		var deadItems []string
+		o.items.Range(
+			func(key, value interface{}) bool {
+				err := value.(*DbConn).DB.Ping()
+				if err != nil {
+					deadItems = append(deadItems, key.(string))
+				}
+				return true // continue iteration
+			})
+
+		// remove dead connections
+		if len(deadItems) > 0 {
+			for _, item := range deadItems {
+				conn, _ := o.GetById(item, false)
+				conn.Close()
+				o.Delete(item)
+			}
+			utils.Log.Debug(fmt.Sprintf("Regular task: %d dead connections removed", len(deadItems)))
+		}
+
 	}
 }
 
