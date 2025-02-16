@@ -36,6 +36,7 @@ func main() {
 	router.HandleFunc("/api/v1/statement/prepare", handlers.PrepareStatement).Methods("POST")
 	router.HandleFunc("/api/v1/statement/select", handlers.SelectStatement).Methods("GET")
 	router.HandleFunc("/api/v1/statement/execute", handlers.ExecuteStatement).Methods("POST")
+	router.HandleFunc("/api/v1/statement/close", handlers.CloseStatement).Methods("DELETE")
 	router.HandleFunc("/healthz", handlers.Healthz).Methods("GET")
 	router.HandleFunc("/readyz", handlers.Readyz).Methods("GET")
 	router.HandleFunc("/livez", handlers.Livez).Methods("GET")

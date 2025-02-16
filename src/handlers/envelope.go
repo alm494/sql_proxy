@@ -8,8 +8,3 @@ type ResponseEnvelope struct {
 	ExceedsMaxRows bool   `json:"exceeds_max_rows"`
 	Rows           []map[string]interface{}
 }
-
-type ExecuteQueryEnvelope struct {
-	SQL  string `json:"sql"`
-	Conn string `json:"connection_id"`
-}

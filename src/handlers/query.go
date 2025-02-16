@@ -12,8 +12,8 @@ import (
 )
 
 func SelectQuery(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query().Get("query")
-	conn := r.URL.Query().Get("conn")
+	query := r.URL.Query().Get("sql")
+	conn := r.URL.Query().Get("connection_id")
 	if query == "" || conn == "" {
 		errorText := "Missing parameter"
 		app.Log.Error(errorText)
@@ -22,8 +22,8 @@ func SelectQuery(w http.ResponseWriter, r *http.Request) {
 	}
 
 	app.Log.WithFields(logrus.Fields{
-		"query": query,
-		"conn":  conn,
+		"sql":           query,
+		"connection_id": conn,
 	}).Debug("SQL query received:")
 
 	// Search existings connection in the pool
@@ -62,18 +62,27 @@ func SelectQuery(w http.ResponseWriter, r *http.Request) {
 }
 
 func ExecuteQuery(w http.ResponseWriter, r *http.Request) {
-	var payload ExecuteQueryEnvelope
-	err := json.NewDecoder(r.Body).Decode(&payload)
+
+	var requestBody map[string]interface{}
+	err := json.NewDecoder(r.Body).Decode(&requestBody)
 	if err != nil {
-		http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
+		http.Error(w, "Error decoding JSON", http.StatusBadRequest)
 		return
 	}
-	conn, ok := db.Handler.GetById(payload.Conn, true)
+	defer r.Body.Close()
+
+	conn, ok := db.Handler.GetById(requestBody["connection_id"].(string), true)
 	if !ok {
 		http.Error(w, "Invalid connection id", http.StatusBadRequest)
 		return
 	}
-	_, err = conn.Exec(payload.SQL)
+
+	app.Log.WithFields(logrus.Fields{
+		"sql":           requestBody["sql"].(string),
+		"connection_id": requestBody["connection_id"].(string),
+	}).Debug("SQL execute query received:")
+
+	_, err = conn.Exec(requestBody["sql"].(string))
 	if err != nil {
 		http.Error(w, "Invalid SQL query", http.StatusBadRequest)
 	}

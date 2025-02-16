@@ -13,18 +13,20 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// *** SQL connections ***
+
 // Gets SQL server connection by GUID
-func (o *DbList) GetById(guid string, updateTimestamp bool) (*sql.DB, bool) {
-	val, ok := o.items.Load(guid)
+func (o *DbList) GetById(id string, updateTimestamp bool) (*sql.DB, bool) {
+	val, ok := o.items.Load(id)
 	if ok {
 		res := val.(*DbConn)
 		if updateTimestamp {
 			res.Timestamp = time.Now()
-			o.items.Store(guid, res)
+			o.items.Store(id, res)
 		}
 		return res.DB, true
 	}
-	app.Log.Error(fmt.Sprintf("SQL connection with guid='%s' not found", guid))
+	app.Log.Error(fmt.Sprintf("SQL connection with guid='%s' not found", id))
 	return nil, false
 }
 
@@ -141,6 +143,71 @@ func (o *DbList) getNewConnection(connInfo *DbConnInfo, hash [32]byte) (string, 
 	return newId, true
 }
 
+// Deletes SQL server connection
+func (o *DbList) Delete(id string) {
+	o.items.Delete(id)
+	app.Log.Debug(fmt.Sprintf("DB connection with id %s was deleted by query", id))
+}
+
+// *** SQL prepared statements ***
+
+// Saves SQL prepared statement
+func (o *DbList) PutPreparedStatement(id string, stmt *sql.Stmt) (string, bool) {
+	val, ok := o.items.Load(id)
+	if !ok {
+		app.Log.Error(fmt.Sprintf("SQL connection with guid='%s' not found", id))
+		return "", false
+	}
+
+	newId := uuid.New().String()
+	dbStmt := DbStmt{
+		Id:   newId,
+		Stmt: stmt,
+	}
+	res := val.(*DbConn)
+	res.Timestamp = time.Now()
+	res.Stmt = append(res.Stmt, dbStmt)
+	o.items.Store(id, res)
+	return newId, true
+}
+
+// Gets SQL prepared statement
+func (o *DbList) GetPreparedStatement(conn_id, stmt_id string) (*sql.Stmt, bool) {
+	val, ok := o.items.Load(conn_id)
+	if !ok {
+		app.Log.Error(fmt.Sprintf("SQL connection with guid='%s' not found", conn_id))
+		return nil, false
+	}
+	res := val.(*DbConn)
+	for i := 0; i < len(res.Stmt); i++ {
+		if res.Stmt[i].Id == stmt_id {
+			return res.Stmt[i].Stmt, true
+		}
+	}
+	return nil, false
+}
+
+// Closes and deletes SQL prepared statement
+func (o *DbList) ClosePreparedStatement(conn_id, stmt_id string) bool {
+	val, ok := o.items.Load(conn_id)
+	if !ok {
+		app.Log.Error(fmt.Sprintf("SQL connection with guid='%s' not found", conn_id))
+		return false
+	}
+	res := val.(*DbConn)
+	for i := 0; i < len(res.Stmt); i++ {
+		if res.Stmt[i].Id == stmt_id {
+			res.Stmt[i].Stmt.Close()
+			res.Stmt = append(res.Stmt[:i], res.Stmt[i+1:]...)
+			break
+		}
+	}
+	o.items.Store(conn_id, res)
+	return true
+}
+
+// *** Maintenance ***
+
 func (o *DbList) RunMaintenance() {
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
@@ -151,14 +218,18 @@ func (o *DbList) RunMaintenance() {
 
 		// detect dead connections
 		var deadItems []string
+		var count int
 		o.items.Range(
 			func(key, value interface{}) bool {
+				count++
 				err := value.(*DbConn).DB.Ping()
 				if err != nil {
 					deadItems = append(deadItems, key.(string))
 				}
 				return true // continue iteration
 			})
+
+		app.Log.Debug(fmt.Sprintf("Regular task: pool size = %d", count))
 
 		// remove dead connections
 		if len(deadItems) > 0 {
@@ -171,10 +242,4 @@ func (o *DbList) RunMaintenance() {
 		}
 
 	}
-}
-
-func (o *DbList) Delete(id string) {
-
-	o.items.Delete(id)
-
 }
