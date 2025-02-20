@@ -2,7 +2,7 @@
 
 ## About 
 
-Simple REST service to replace ADODB calls from any legacy software which supports web calls
+A simple REST service to replace ADODB calls in any legacy software which supports web calls
 
 ## Key features:
 
