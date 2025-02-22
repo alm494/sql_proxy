@@ -9,7 +9,7 @@ A simple REST service to replace ADODB calls in any legacy software which suppor
 * Supports PostgreSQL, Microsoft SQL and MySQL databases. Any other standard Golang drivers may be embedded if need;
 * Does not store any SQL credentials;
 * Supports secure HTTPS;
-* Has common reused SQL connecton pool, and maintenance tasks to remove dead connections;
+* Has shared reused SQL connecton pool, and maintenance tasks to remove dead connections;
 * Currently supports both 'select' and 'execute' commands. 'Select' returns the recordset in JSON;
 * Rows to return in 'select' statements may be limited by settings;
 * Prepared statements are in "to do" state;
