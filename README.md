@@ -10,7 +10,7 @@ A lightweight REST service designed to replace ADODB calls in legacy software sy
 * Secure Credential Management : Does not store SQL credentials, ensuring sensitive information remains protected;
 * Secure Communication : Supports HTTPS for secure data transmission;
 * Efficient Connection Pooling : Utilizes a shared, reusable SQL connection pool with automated maintenance tasks to remove stale or dead connections;
-* Command Support : Currently supports both SELECT and EXECUTE commands. The SELECT command returns query results as a JSON-formatted recordset;
+* Command Support : Currently supports all SQL commands with no limitation. The SELECT command returns query results as a JSON-formatted recordset;
 * Result Limitation : Allows configuration to limit the number of rows returned by SELECT statements;
 * Prepared Statements : Implementation of prepared statements is planned for future development;
 * Flexible Binding : Can bind to localhost or any specified IP address for enhanced security. By default, it is intended to bind to localhost and run alongside legacy software;
