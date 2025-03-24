@@ -2,20 +2,20 @@
 
 ## About 
 
-A simple REST service to replace ADODB calls in any legacy software which supports web calls
+A lightweight REST service designed to replace ADODB calls in legacy software systems that support web requests. This service streamlines database interactions while maintaining security and efficiency.
 
 ## Key features:
 
-* Supports PostgreSQL, Microsoft SQL and MySQL databases. Any other standard Golang drivers may be embedded if need;
-* Does not store any SQL credentials;
-* Supports secure HTTPS;
-* Has shared reused SQL connecton pool, and maintenance tasks to remove dead connections;
-* Currently supports both 'select' and 'execute' commands. 'Select' returns the recordset in JSON;
-* Rows to return in 'select' statements may be limited by settings;
-* Prepared statements are in "to do" state;
-* May bind to localhost or any other IP address for security. Primarily it is intended to bind to localhost and run alongside with the legacy software;
-* Does not check SQL query for any security reasons, this must be done by setting user privileges.
-* Provides Prometheus metrics; 
+* Multi-Database Support : Compatible with PostgreSQL, Microsoft SQL Server, and MySQL databases. Additional standard Golang database drivers can be integrated as needed;
+* Secure Credential Management : Does not store SQL credentials, ensuring sensitive information remains protected;
+* Secure Communication : Supports HTTPS for secure data transmission;
+* Efficient Connection Pooling : Utilizes a shared, reusable SQL connection pool with automated maintenance tasks to remove stale or dead connections;
+* Command Support : Currently supports both SELECT and EXECUTE commands. The SELECT command returns query results as a JSON-formatted recordset;
+* Result Limitation : Allows configuration to limit the number of rows returned by SELECT statements;
+* Prepared Statements : Implementation of prepared statements is planned for future development;
+* Flexible Binding : Can bind to localhost or any specified IP address for enhanced security. By default, it is intended to bind to localhost and run alongside legacy software;
+* Security Responsibility : Does not perform SQL query validation for security purposes. It is the responsibility of the user to configure appropriate database privileges.
+* Monitoring and Metrics : Provides Prometheus metrics for performance monitoring and observability; 
 
 ## API description
 
