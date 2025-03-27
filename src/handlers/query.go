@@ -11,10 +11,11 @@ import (
 )
 
 func SelectQuery(w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query().Get("sql")
-	conn := r.URL.Query().Get("connection_id")
-	if query == "" || conn == "" {
-		errorText := "Missing parameter"
+
+	conn_id := r.Header.Get("Connection-Id")
+	query := r.Header.Get("SQL-Statement")
+	if conn_id == "" || query == "" {
+		errorText := "Bad request"
 		app.Log.Error(errorText)
 		http.Error(w, errorText, http.StatusBadRequest)
 		return
@@ -22,14 +23,14 @@ func SelectQuery(w http.ResponseWriter, r *http.Request) {
 
 	app.Log.WithFields(logrus.Fields{
 		"sql":           query,
-		"connection_id": conn,
+		"connection_id": conn_id,
 	}).Debug("SQL query received:")
 
 	// Search existings connection in the pool
-	dbConn, ok := db.Handler.GetById(conn, true)
+	dbConn, ok := db.Handler.GetById(conn_id, true)
 	if !ok {
 		errorText := "Failed to get SQL connection"
-		app.Log.Error(errorText, ": ", conn)
+		app.Log.Error(errorText, ": ", conn_id)
 		http.Error(w, errorText, http.StatusForbidden)
 		return
 	}
@@ -62,26 +63,27 @@ func SelectQuery(w http.ResponseWriter, r *http.Request) {
 
 func ExecuteQuery(w http.ResponseWriter, r *http.Request) {
 
-	var requestBody map[string]interface{}
-	err := json.NewDecoder(r.Body).Decode(&requestBody)
-	if err != nil {
-		http.Error(w, "Error decoding JSON", http.StatusBadRequest)
+	conn_id := r.Header.Get("Connection-Id")
+	query := r.Header.Get("SQL-Statement")
+	if conn_id == "" || query == "" {
+		errorText := "Bad request"
+		app.Log.Error(errorText)
+		http.Error(w, errorText, http.StatusBadRequest)
 		return
 	}
-	defer r.Body.Close()
 
-	conn, ok := db.Handler.GetById(requestBody["connection_id"].(string), true)
+	dbConn, ok := db.Handler.GetById(conn_id, true)
 	if !ok {
-		http.Error(w, "Invalid connection id", http.StatusBadRequest)
+		http.Error(w, "Invalid connection id", http.StatusForbidden)
 		return
 	}
 
 	app.Log.WithFields(logrus.Fields{
-		"sql":           requestBody["sql"].(string),
-		"connection_id": requestBody["connection_id"].(string),
+		"sql":           query,
+		"connection_id": conn_id,
 	}).Debug("SQL execute query received:")
 
-	_, err = conn.Exec(requestBody["sql"].(string))
+	_, err := dbConn.Exec(query)
 	if err != nil {
 		http.Error(w, "Invalid SQL query", http.StatusBadRequest)
 	}

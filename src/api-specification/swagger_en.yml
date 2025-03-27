@@ -1,0 +1,180 @@
+openapi: '3.0.3'
+info:
+  title: SQL Proxy
+  version: '1.0'
+servers:
+  - url: https://api.server.test/v1
+
+paths:
+  /connection:
+    post:
+      summary: Establish SQL connection
+      description: First, check if an SQL connection has already been established. If not, create a new connection and add it to the application pool.
+      requestBody:
+        description: Provide SQL connection properties and credentials.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConnectionProperties'
+
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: return SQL connection id as GUID in a plain text.
+                example: '52f0b434-4eae-4cc6-803c-2d2f604fe16c'
+
+        '400':
+          description: Error decoding JSON
+
+        '500':
+          description: Failed to get SQL connection
+          
+    delete:
+      summary: Close SQL connection
+      description: Close and explicitly remove the SQL connection from the application pool.
+      parameters:
+        - in: header
+          name: Connection-Id
+          schema:
+            type: string
+          description: SQL connection id as GUID in a plain text.
+          required: true
+          example: '52f0b434-4eae-4cc6-803c-2d2f604fe16c'
+
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad request
+
+  /query:
+    get:
+      summary: SELECT queries
+      description: Use this method for any SQL query that is expected to return a result as a table, such as a SELECT statement. The resulting table is wrapped into a flexible JSON object, with columns dynamically determined based on the query.
+      parameters:
+        - in: header
+          name: Connection-Id
+          schema:
+            type: string
+          description: SQL connection id as GUID in a plain text, must be obtained by /connection POST method.
+          required: true
+          example: '52f0b434-4eae-4cc6-803c-2d2f604fe16c'
+        - in: header
+          name: SQL-Statement
+          schema:
+            type: string
+          description: SQL statemet (url-encoded).
+          required: true
+          example: 'SELECT * FROM SALES WHERE Title LIKE "Manager %"'
+
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseEnvelope'
+                description: SQL query result in a JSON envelope.
+        '400':
+          description: Bad request
+        '403':
+          description: Forbidden
+        '500':
+          description: Internal server error
+
+    post:
+      summary: Other queries
+      description: Use this method for any SQL query that does not return a result as a table, such as INSERT, DELETE, or similar operations.
+      parameters:
+        - in: header
+          name: Connection-Id
+          schema:
+            type: string
+          description: SQL connection id as GUID in a plain text, must be obtained by /connection POST method.
+          required: true
+          example: '52f0b434-4eae-4cc6-803c-2d2f604fe16c'
+        - in: header
+          name: SQL-Statement
+          schema:
+            type: string
+          description: SQL statemet (url-encoded).
+          required: true
+          example: 'DELETE FROM SALES WHERE id = 783'
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Bad request
+        '403':
+          description: Forbidden
+
+components:
+  schemas:
+    ConnectionProperties:
+      type: object
+      properties:
+        db_type:
+          type: string
+          description: 'One of the following values: postgres, sqlserver, mysql'
+          example: 'postgres'
+        host:
+          type: string
+          description: 'SQL server name or IP (ipv4, ipv6)'
+          example: 'localhost.local'
+        port: 
+          type: integer
+          description: 'SQL server IP port'
+          minimum: 1000
+          maximum: 65535
+          example: 5442
+        user:
+          type: string
+          description: 'Credentials: user name'
+          example: 'MyServiceAccount'
+        password:
+          type: string
+          description: 'Credentials: password'
+          example: 'MyServicePassword'
+        db_name:
+          type: string
+          description: 'Database name'
+          example: 'Sales'
+        ssl:
+          type: boolean
+          description: 'Postgres specific to enable SSL'
+          default: false
+
+    ResponseEnvelope:
+      type: object
+      properties:
+        api_version:
+          type: integer
+          default: 1
+          description: API version
+          example: 1
+        connection_id:
+          type: string
+          description: SQL connection id as GUID in a plain text
+          example: '52f0b434-4eae-4cc6-803c-2d2f604fe16c'
+        info:
+          type: string
+          description: Optional additional info
+          example: nice query
+        rows_count:
+          type: integer
+          description: Count of rows returned
+          example: 32
+        exceeds_max_rows:
+          type: boolean
+          description: Indicates if MAX_ROWS parameter was exceeded
+          example: false
+          default: false
+        rows:
+          type: object
+          description: A JSON table with flexible rows converted from the query result
+
