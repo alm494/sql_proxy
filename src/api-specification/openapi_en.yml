@@ -176,5 +176,5 @@ components:
           default: false
         rows:
           type: object
-          description: A JSON table with flexible rows converted from the query result
+          description: A JSON table with flexible rows, converted from the query result (an array of objects).
 
