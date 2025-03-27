@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 
 	"sql-proxy/src/app"
 	"sql-proxy/src/db"
@@ -13,8 +14,9 @@ import (
 func SelectQuery(w http.ResponseWriter, r *http.Request) {
 
 	conn_id := r.Header.Get("Connection-Id")
-	query := r.Header.Get("SQL-Statement")
-	if conn_id == "" || query == "" {
+	query, err := url.QueryUnescape(r.Header.Get("SQL-Statement"))
+
+	if err != nil || conn_id == "" || query == "" {
 		errorText := "Bad request"
 		app.Log.Error(errorText)
 		http.Error(w, errorText, http.StatusBadRequest)
@@ -64,13 +66,19 @@ func SelectQuery(w http.ResponseWriter, r *http.Request) {
 func ExecuteQuery(w http.ResponseWriter, r *http.Request) {
 
 	conn_id := r.Header.Get("Connection-Id")
-	query := r.Header.Get("SQL-Statement")
-	if conn_id == "" || query == "" {
+	query, err := url.QueryUnescape(r.Header.Get("SQL-Statement"))
+
+	if err != nil || conn_id == "" || query == "" {
 		errorText := "Bad request"
 		app.Log.Error(errorText)
 		http.Error(w, errorText, http.StatusBadRequest)
 		return
 	}
+
+	app.Log.WithFields(logrus.Fields{
+		"sql":           query,
+		"connection_id": conn_id,
+	}).Debug("SQL query received:")
 
 	dbConn, ok := db.Handler.GetById(conn_id, true)
 	if !ok {
@@ -83,7 +91,7 @@ func ExecuteQuery(w http.ResponseWriter, r *http.Request) {
 		"connection_id": conn_id,
 	}).Debug("SQL execute query received:")
 
-	_, err := dbConn.Exec(query)
+	_, err = dbConn.Exec(query)
 	if err != nil {
 		http.Error(w, "Invalid SQL query", http.StatusBadRequest)
 	}
