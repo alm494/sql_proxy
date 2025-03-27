@@ -19,4 +19,18 @@ A lightweight REST service designed to replace ADODB calls in legacy software sy
 
 ## API description
 
-See Swagger OpenAPI 3.0 specification in /src
+See Swagger OpenAPI 3.0 specification in /src/docs
+
+## How to compile
+
+```
+make prod
+```
+
+## How to run
+
+Settings are passed with environment variables, see Makefile for details:
+
+```
+BIND_ADDR=localhost BIND_PORT=8081 MAX_ROWS=10000 LOG_LEVEL=3 sql-proxy
+```
