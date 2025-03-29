@@ -37,7 +37,7 @@ func PrepareStatement(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func SelectStatement(w http.ResponseWriter, r *http.Request) {
+func PreparedSelect(w http.ResponseWriter, r *http.Request) {
 	var requestBody map[string]interface{}
 	err := json.NewDecoder(r.Body).Decode(&requestBody)
 	if err != nil {
@@ -49,10 +49,10 @@ func SelectStatement(w http.ResponseWriter, r *http.Request) {
 	// to do
 }
 
-func ExecuteStatement(w http.ResponseWriter, r *http.Request) {
+func PreparedExecute(w http.ResponseWriter, r *http.Request) {
 	// to do
 }
 
-func CloseStatement(w http.ResponseWriter, r *http.Request) {
+func ClosePreparedStatement(w http.ResponseWriter, r *http.Request) {
 	// to do
 }
