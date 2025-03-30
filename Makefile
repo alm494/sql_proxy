@@ -32,7 +32,6 @@ clean:
 
 # Build for production
 prod: clean
-	@echo "Building $(PROJECT_NAME) or production..."
 	GOOS=${GOOS} GOARCH=${GOARCH} go build $(TAGS) \
 		-ldflags="-s -w \
 		-X ${PROJECT_NAME}/src/app.BuildVersion=${BUILD_VERSION} \
@@ -41,7 +40,6 @@ prod: clean
 
 # Build for debugging
 debug: clean
-	@echo "Building $(PROJECT_NAME) or production..."
 	GOOS=${GOOS} GOARCH=${GOARCH} go build $(TAGS) \
 		-ldflags="\
 		-X ${PROJECT_NAME}/src/app.BuildVersion=${BUILD_VERSION}-debug \
