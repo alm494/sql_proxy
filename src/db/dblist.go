@@ -9,6 +9,8 @@ import (
 
 	"time"
 
+	"slices"
+
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 )
@@ -42,7 +44,7 @@ func (o *DbList) GetByParams(connInfo *DbConnInfo) (string, bool) {
 	// Step 1. Search existing connection by hash to reuse
 	guid := ""
 	o.items.Range(
-		func(key, value interface{}) bool {
+		func(key, value any) bool {
 			if bytes.Equal(value.(*DbConn).Hash[:], hash[:]) {
 				guid = key.(string)
 				app.Log.Debugf("DB connection with id %s found in the pool", guid)
@@ -191,10 +193,10 @@ func (o *DbList) ClosePreparedStatement(conn_id, stmt_id string) bool {
 		return false
 	}
 	res := val.(*DbConn)
-	for i := 0; i < len(res.Stmt); i++ {
+	for i := range res.Stmt {
 		if res.Stmt[i].Id == stmt_id {
 			res.Stmt[i].Stmt.Close()
-			res.Stmt = append(res.Stmt[:i], res.Stmt[i+1:]...)
+			res.Stmt = slices.Delete(res.Stmt, i, i+1)
 			break
 		}
 	}
@@ -216,7 +218,7 @@ func (o *DbList) RunMaintenance() {
 		var countConn, countDeadConn, countStmt int
 
 		o.items.Range(
-			func(key, value interface{}) bool {
+			func(key, value any) bool {
 				var lostStmts []string
 				countConn++
 				dbConn := value.(*DbConn)
@@ -245,7 +247,7 @@ func (o *DbList) RunMaintenance() {
 					for i := 0; i < len(dbConn.Stmt); i++ {
 						if dbConn.Stmt[i].Id == lost {
 							dbConn.Stmt[i].Stmt.Close()
-							dbConn.Stmt = append(dbConn.Stmt[:i], dbConn.Stmt[i+1:]...)
+							dbConn.Stmt = slices.Delete(dbConn.Stmt, i, i+1)
 							break
 						}
 					}

@@ -6,12 +6,12 @@ import (
 )
 
 // Converts SQL query result to json
-func convertRows(rows *sql.Rows, columns *[]string) (*[]map[string]interface{}, uint32, bool) {
+func convertRows(rows *sql.Rows, columns *[]string) (*[]map[string]any, uint32, bool) {
 	var rowsCount uint32 = 0
 	colsCount := len(*columns)
-	tableData := make([]map[string]interface{}, 0)
-	values := make([]interface{}, colsCount)
-	valuePtrs := make([]interface{}, colsCount)
+	tableData := make([]map[string]any, 0)
+	values := make([]any, colsCount)
+	valuePtrs := make([]any, colsCount)
 	exceedsMaxRows := false
 
 	for rows.Next() {
@@ -19,9 +19,9 @@ func convertRows(rows *sql.Rows, columns *[]string) (*[]map[string]interface{}, 
 			valuePtrs[i] = &values[i]
 		}
 		rows.Scan(valuePtrs...)
-		entry := make(map[string]interface{})
+		entry := make(map[string]any)
 		for i, col := range *columns {
-			var v interface{}
+			var v any
 			val := values[i]
 			b, ok := val.([]byte)
 			if ok {

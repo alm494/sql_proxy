@@ -7,7 +7,7 @@ import (
 )
 
 func PrepareStatement(w http.ResponseWriter, r *http.Request) {
-	var requestBody map[string]interface{}
+	var requestBody map[string]any
 	err := json.NewDecoder(r.Body).Decode(&requestBody)
 	if err != nil {
 		http.Error(w, "Error decoding JSON", http.StatusBadRequest)
@@ -38,7 +38,7 @@ func PrepareStatement(w http.ResponseWriter, r *http.Request) {
 }
 
 func PreparedSelect(w http.ResponseWriter, r *http.Request) {
-	var requestBody map[string]interface{}
+	var requestBody map[string]any
 	err := json.NewDecoder(r.Body).Decode(&requestBody)
 	if err != nil {
 		http.Error(w, "Error decoding JSON", http.StatusBadRequest)
