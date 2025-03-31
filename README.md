@@ -19,7 +19,7 @@ A lightweight REST service designed to replace ADODB calls in legacy software sy
 
 ## API description
 
-See Swagger OpenAPI 3.0 specification in /src/docs
+See Swagger OpenAPI 3.0 specification in /src/docs/api
 
 ## How to compile
 
