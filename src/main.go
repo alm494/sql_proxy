@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"os"
 
 	"sql-proxy/src/app"
 	"sql-proxy/src/db"
@@ -18,12 +17,12 @@ func main() {
 	var err error
 
 	// Application params taken from OS environment
-	app.Log.SetLevel(logrus.Level(app.GetIntEnvOrDefault("LOG_LEVEL", 2)))
-	bindAddress := os.Getenv("BIND_ADDR")
-	bindPort := app.GetIntEnvOrDefault("BIND_PORT", 8080)
-	db.MaxRows = app.GetIntEnvOrDefault("MAX_ROWS", 10000)
-	tlsCert := os.Getenv("TLS_CERT")
-	tlsKey := os.Getenv("TLS_KEY")
+	app.Log.SetLevel(logrus.Level(app.GetEnvInt("LOG_LEVEL", 2)))
+	bindAddress := app.GetEnvString("BIND_ADDR", "localhost")
+	bindPort := app.GetEnvInt("BIND_PORT", 8080)
+	db.MaxRows = uint32(app.GetEnvInt("MAX_ROWS", 10000))
+	tlsCert := app.GetEnvString("TLS_CERT", "")
+	tlsKey := app.GetEnvString("TLS_KEY", "")
 
 	// Scheduled maintenance task
 	go db.Handler.RunMaintenance()

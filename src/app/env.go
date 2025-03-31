@@ -5,19 +5,19 @@ import (
 	"strconv"
 )
 
-func GetIntEnvOrDefault(env string, defaultValue uint32) uint32 {
-	strValue := os.Getenv(env)
-
-	if len(strValue) == 0 {
-		return defaultValue
-	} else {
-		uintValue, err := strconv.ParseUint(strValue, 10, 32)
-		if err != nil {
-			Log.Error(env + " env value cannot be parsed as uint, reset to " + strconv.FormatUint(uint64(defaultValue), 10))
-			return defaultValue
-		} else {
-			return uint32(uintValue)
-		}
+func GetEnvString(key, defaultValue string) string {
+	if value, exists := os.LookupEnv(key); exists {
+		return value
 	}
+	return defaultValue
+}
 
+func GetEnvInt(key string, defaultValue int) int {
+	if value, exists := os.LookupEnv(key); exists {
+		if intValue, err := strconv.Atoi(value); err == nil {
+			return intValue
+		}
+		Log.Errorf("Invalid integer value for %s, using default value: %d", key, defaultValue)
+	}
+	return defaultValue
 }
