@@ -17,8 +17,7 @@ import (
 
 // Gets SQL server connection by GUID
 func (o *DbList) GetById(id string, updateTimestamp bool) (*sql.DB, bool) {
-	val, ok := o.items.Load(id)
-	if ok {
+	if val, ok := o.items.Load(id); ok {
 		res := val.(*DbConn)
 		if updateTimestamp {
 			res.Timestamp = time.Now()
@@ -26,7 +25,7 @@ func (o *DbList) GetById(id string, updateTimestamp bool) (*sql.DB, bool) {
 		}
 		return res.DB, true
 	}
-	app.Log.Error(fmt.Sprintf("SQL connection with guid='%s' not found", id))
+	app.Log.Errorf("SQL connection with guid='%s' not found", id)
 	return nil, false
 }
 
@@ -46,7 +45,7 @@ func (o *DbList) GetByParams(connInfo *DbConnInfo) (string, bool) {
 		func(key, value interface{}) bool {
 			if bytes.Equal(value.(*DbConn).Hash[:], hash[:]) {
 				guid = key.(string)
-				app.Log.Debug(fmt.Sprintf("DB connection with id %s found in the pool", guid))
+				app.Log.Debugf("DB connection with id %s found in the pool", guid)
 				return false // stop iteraton
 			}
 			return true // continue iteration
@@ -54,16 +53,14 @@ func (o *DbList) GetByParams(connInfo *DbConnInfo) (string, bool) {
 
 	// Step 2. Perform checks and return guid if passed
 	if len(guid) > 0 {
-		conn, ok := o.items.Load(guid)
-		if ok {
-			err = conn.(*DbConn).DB.Ping()
-			if err == nil {
+		if conn, ok := o.items.Load(guid); ok {
+			if err = conn.(*DbConn).DB.Ping(); err == nil {
 				// Everything is ok, return guid
 				return guid, true
 			} else {
 				// Remove dead connection from the pool
 				o.items.Delete(guid)
-				app.Log.Debug(fmt.Sprintf("DB connection with id %s is dead and removed from the pool", guid))
+				app.Log.Debugf("DB connection with id %s is dead and removed from the pool", guid)
 			}
 
 		}
@@ -114,8 +111,7 @@ func (o *DbList) getNewConnection(connInfo *DbConnInfo, hash [32]byte) (string, 
 	}
 
 	// 4. Check if alive
-	err = newDb.Ping()
-	if err != nil {
+	if err = newDb.Ping(); err != nil {
 		errMsg := "Just created SQL connection is dead"
 		app.Log.WithError(err).Error(errMsg)
 		return errMsg, false
@@ -138,7 +134,7 @@ func (o *DbList) getNewConnection(connInfo *DbConnInfo, hash [32]byte) (string, 
 		"user":   connInfo.User,
 		"dbType": connInfo.DbType,
 		"Id":     newId,
-	}).Info(fmt.Sprintf("New SQL connection with id %s was added to the pool", newId))
+	}).Infof("New SQL connection with id %s was added to the pool", newId)
 
 	return newId, true
 }
@@ -146,7 +142,7 @@ func (o *DbList) getNewConnection(connInfo *DbConnInfo, hash [32]byte) (string, 
 // Deletes SQL server connection
 func (o *DbList) Delete(id string) {
 	o.items.Delete(id)
-	app.Log.Debug(fmt.Sprintf("DB connection with id %s was deleted by query", id))
+	app.Log.Debugf("DB connection with id %s was deleted by query", id)
 }
 
 // *** SQL prepared statements ***
@@ -155,7 +151,7 @@ func (o *DbList) Delete(id string) {
 func (o *DbList) PutPreparedStatement(id string, stmt *sql.Stmt) (string, bool) {
 	val, ok := o.items.Load(id)
 	if !ok {
-		app.Log.Error(fmt.Sprintf("SQL connection with guid='%s' not found", id))
+		app.Log.Errorf("SQL connection with guid='%s' not found", id)
 		return "", false
 	}
 
@@ -175,7 +171,7 @@ func (o *DbList) PutPreparedStatement(id string, stmt *sql.Stmt) (string, bool) 
 func (o *DbList) GetPreparedStatement(conn_id, stmt_id string) (*sql.Stmt, bool) {
 	val, ok := o.items.Load(conn_id)
 	if !ok {
-		app.Log.Error(fmt.Sprintf("SQL connection with guid='%s' not found", conn_id))
+		app.Log.Errorf("SQL connection with guid='%s' not found", conn_id)
 		return nil, false
 	}
 	res := val.(*DbConn)
@@ -191,7 +187,7 @@ func (o *DbList) GetPreparedStatement(conn_id, stmt_id string) (*sql.Stmt, bool)
 func (o *DbList) ClosePreparedStatement(conn_id, stmt_id string) bool {
 	val, ok := o.items.Load(conn_id)
 	if !ok {
-		app.Log.Error(fmt.Sprintf("SQL connection with guid='%s' not found", conn_id))
+		app.Log.Errorf("SQL connection with guid='%s' not found", conn_id)
 		return false
 	}
 	res := val.(*DbConn)
@@ -265,8 +261,8 @@ func (o *DbList) RunMaintenance() {
 			o.Delete(item)
 		}
 
-		app.Log.Debug(fmt.Sprintf("Regular task: SQL connection pool size = %d", countConn))
-		app.Log.Debug(fmt.Sprintf("Regular task: %d dead connections removed", countDeadConn))
-		app.Log.Debug(fmt.Sprintf("Regular task: %d lost prepared statements removed", countStmt))
+		app.Log.Debugf("Regular task: SQL connection pool size = %d", countConn)
+		app.Log.Debugf("Regular task: %d dead connections removed", countDeadConn)
+		app.Log.Debugf("Regular task: %d lost prepared statements removed", countStmt)
 	}
 }
