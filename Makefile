@@ -1,7 +1,7 @@
 PROJECT_NAME := sql-proxy
-BUILD_VERSION := 1.1
+BUILD_VERSION := 1.2
 BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
-BUILD_DIR := bin
+BUILD_DIR := build
 GO_FILES := src/main.go
 
 # Build with SQL drivers, comment out if unused:
