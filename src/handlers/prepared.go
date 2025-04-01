@@ -8,40 +8,40 @@ import (
 
 func PrepareStatement(w http.ResponseWriter, r *http.Request) {
 	var requestBody map[string]any
-	err := json.NewDecoder(r.Body).Decode(&requestBody)
-	if err != nil {
-		http.Error(w, "Error decoding JSON", http.StatusBadRequest)
+
+	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+		errorResponce(w, "Error decoding JSON", http.StatusBadRequest)
 		return
 	}
+
 	defer r.Body.Close()
 
 	conn, ok := db.Handler.GetById(requestBody["connection_id"].(string), true)
 	if !ok {
-		http.Error(w, "Invalid connection id", http.StatusBadRequest)
+		errorResponce(w, "Invalid connection id", http.StatusBadRequest)
 		return
 	}
 
 	stmt, err := conn.Prepare(requestBody["sql"].(string))
 	if err != nil {
-		http.Error(w, "Failed to prepare statement", http.StatusBadRequest)
+		errorResponce(w, err.Error(), http.StatusBadRequest)
 	}
 
 	stmt_id, ok := db.Handler.PutPreparedStatement(requestBody["connection_id"].(string), stmt)
 	if !ok {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		errorResponce(w, err.Error(), http.StatusInternalServerError)
 	}
 
-	_, err = w.Write([]byte(stmt_id))
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if _, err = w.Write([]byte(stmt_id)); err != nil {
+		errorResponce(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
 func PreparedSelect(w http.ResponseWriter, r *http.Request) {
 	var requestBody map[string]any
-	err := json.NewDecoder(r.Body).Decode(&requestBody)
-	if err != nil {
-		http.Error(w, "Error decoding JSON", http.StatusBadRequest)
+
+	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
+		errorResponce(w, "Error decoding JSON", http.StatusBadRequest)
 		return
 	}
 	defer r.Body.Close()

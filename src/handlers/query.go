@@ -17,9 +17,7 @@ func SelectQuery(w http.ResponseWriter, r *http.Request) {
 	query, err := url.QueryUnescape(r.Header.Get("SQL-Statement"))
 
 	if err != nil || conn_id == "" || query == "" {
-		errorText := "Bad request"
-		app.Log.Error(errorText)
-		http.Error(w, errorText, http.StatusBadRequest)
+		errorResponce(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
@@ -31,24 +29,20 @@ func SelectQuery(w http.ResponseWriter, r *http.Request) {
 	// Search existings connection in the pool
 	dbConn, ok := db.Handler.GetById(conn_id, true)
 	if !ok {
-		errorText := "Failed to get SQL connection"
-		app.Log.Error(errorText, ": ", conn_id)
-		http.Error(w, errorText, http.StatusForbidden)
+		errorResponce(w, "Failed to get SQL connection", http.StatusForbidden)
 		return
 	}
 
 	rows, err := dbConn.Query(query)
 	if err != nil {
-		app.Log.WithError(err).Error("SQL query error")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		errorResponce(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
 
 	columns, err := rows.Columns()
 	if err != nil {
-		app.Log.WithError(err).Error("Invalid query return value")
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		errorResponce(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -69,9 +63,7 @@ func ExecuteQuery(w http.ResponseWriter, r *http.Request) {
 	query, err := url.QueryUnescape(r.Header.Get("SQL-Statement"))
 
 	if err != nil || conn_id == "" || query == "" {
-		errorText := "Bad request"
-		app.Log.Error(errorText)
-		http.Error(w, errorText, http.StatusBadRequest)
+		errorResponce(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
@@ -82,7 +74,7 @@ func ExecuteQuery(w http.ResponseWriter, r *http.Request) {
 
 	dbConn, ok := db.Handler.GetById(conn_id, true)
 	if !ok {
-		http.Error(w, "Invalid connection id", http.StatusForbidden)
+		errorResponce(w, "Invalid connection id", http.StatusForbidden)
 		return
 	}
 
@@ -93,6 +85,6 @@ func ExecuteQuery(w http.ResponseWriter, r *http.Request) {
 
 	_, err = dbConn.Exec(query)
 	if err != nil {
-		http.Error(w, "Invalid SQL query", http.StatusBadRequest)
+		errorResponce(w, err.Error(), http.StatusBadRequest)
 	}
 }
