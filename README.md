@@ -9,7 +9,8 @@ For example, you can remove all Linux-incompatible components, such as the follo
 Connection = New COMObject("ADODB.Connection");
 Connection.Open(ConnectionString);
 ```
-and use web requests in a similar manner instead, using a simple library and receive SQL query results in a JSON:
+and use web requests in a similar manner instead, using a simple library to receive SQL query results in a JSON with variable columns you defined
+in SQL select statement:
 ```
 Function OpenSQLConnection(ConnectionString) Export
   HTTP = New HTTPConnection;
