@@ -7,11 +7,11 @@ A lightweight REST service designed to replace ADODB calls in legacy software sy
 For example, you can remove all Linux-incompatible components, such as the following items: 
 ```
 Connection = New COMObject("ADODB.Connection");
-RecordSet = New COMObject("ADODB.Recordset");
+Connection.Open(ConnectionString);
 ```
 and use web requests in a similar manner instead, using a simple library:
 ```
-Function OpenSQLConnection() Export
+Function OpenSQLConnection(ConnectionString) Export
   HTTP = New HTTPConnection;
   Path = "/api/v1/connection";
   ...
