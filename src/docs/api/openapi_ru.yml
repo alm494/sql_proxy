@@ -6,7 +6,9 @@ servers:
   - url: http://localhost/api/v1
 
 paths:
+
   /connection:
+
     post:
       summary: Получить SQL-соединение
       description: Сначала проверяет, установлено ли уже SQL-соединение. Если нет, устанавливает новое и добавляет его в пул доступных соединений.
@@ -53,6 +55,7 @@ paths:
           description: Неверный запрос
 
   /query:
+
     get:
       summary: Запросы SELECT
       description: Используйте этот метод для любого SQL-запроса, от который ожидается результат в виде таблицы, например, с оператором SELECT. Полученная таблица оборачивается в JSON-объект, с колонками, определяемыми динамически на основе запроса.
@@ -105,6 +108,69 @@ paths:
           description: SQL-запрос (URL-кодированный).
           required: true
           example: 'DELETE FROM SALES WHERE id = 783'
+      responses:
+        '200':
+          description: OK
+        '400':
+          description: Неверный запрос
+        '403':
+          description: Запрещено
+  
+  /prepared:
+  
+    post:
+      summary: Создать предварительно подготовленный оператор
+      description: Используйте этот метод для создания предварительно подготовленного оператора
+      parameters:
+        - in: header
+          name: Connection-Id
+          schema:
+            type: string
+          description: Идентификатор SQL-соединения в форме GUID, должен быть получен ранее методом POST /connection.
+          required: true
+          example: '52f0b434-4eae-4cc6-803c-2d2f604fe16c'
+        - in: header
+          name: Prepared-Statement
+          description: Предварительно подготовленный оператор SQL с параметрами, для выборки или изменения данных (url-кодированный).
+          schema:
+            type: string
+          required: true
+          example: 'SELECT * SALES WHERE id = ? and name = ?'
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: Возвращает идентификатор подготовленного оператора SQL в форме GUID..
+                example: 'f3f0b434-e4ae-c4c6-c803-d22f504fe16c'
+        '400':
+          description: Неверный запрос
+        '403':
+          description: Запрещено
+        '500':
+          description: Внутренняя ошибка сервера
+    
+    delete:
+      summary: Закрыть предварительно подготовленный оператор
+      description: Закрыть и удалить предварительно подготовленный оператор SQL.
+      parameters:
+        - in: header
+          name: Connection-Id
+          schema:
+            type: string
+          description: Идентификатор SQL-соединения в форме GUID, должен быть получен ранее методом POST /connection.
+          required: true
+          example: '52f0b434-4eae-4cc6-803c-2d2f604fe16c'
+        - in: header
+          name: Statement-Id
+          schema:
+            type: string
+          description: Идентификатор предварительно подготовленного оператора SQL в форме GUID, должен быть получен ранее методом POST /prepared.
+          required: true
+          example: 'f3f0b434-e4ae-c4c6-c803-d22f504fe16c'
+
       responses:
         '200':
           description: OK

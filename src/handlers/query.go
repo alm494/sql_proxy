@@ -13,21 +13,21 @@ import (
 
 func SelectQuery(w http.ResponseWriter, r *http.Request) {
 
-	conn_id := r.Header.Get("Connection-Id")
+	connId := r.Header.Get("Connection-Id")
 	query, err := url.QueryUnescape(r.Header.Get("SQL-Statement"))
 
-	if err != nil || conn_id == "" || query == "" {
+	if err != nil || connId == "" || query == "" {
 		errorResponce(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
 	app.Log.WithFields(logrus.Fields{
 		"sql":           query,
-		"connection_id": conn_id,
+		"connection_id": connId,
 	}).Debug("SQL query received:")
 
 	// Search existings connection in the pool
-	dbConn, ok := db.Handler.GetById(conn_id, true)
+	dbConn, ok := db.Handler.GetById(connId, true)
 	if !ok {
 		errorResponce(w, "Failed to get SQL connection", http.StatusForbidden)
 		return
@@ -59,20 +59,20 @@ func SelectQuery(w http.ResponseWriter, r *http.Request) {
 
 func ExecuteQuery(w http.ResponseWriter, r *http.Request) {
 
-	conn_id := r.Header.Get("Connection-Id")
+	connId := r.Header.Get("Connection-Id")
 	query, err := url.QueryUnescape(r.Header.Get("SQL-Statement"))
 
-	if err != nil || conn_id == "" || query == "" {
+	if err != nil || connId == "" || query == "" {
 		errorResponce(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
 	app.Log.WithFields(logrus.Fields{
 		"sql":           query,
-		"connection_id": conn_id,
+		"connection_id": connId,
 	}).Debug("SQL query received:")
 
-	dbConn, ok := db.Handler.GetById(conn_id, true)
+	dbConn, ok := db.Handler.GetById(connId, true)
 	if !ok {
 		errorResponce(w, "Invalid connection id", http.StatusForbidden)
 		return
@@ -80,7 +80,7 @@ func ExecuteQuery(w http.ResponseWriter, r *http.Request) {
 
 	app.Log.WithFields(logrus.Fields{
 		"sql":           query,
-		"connection_id": conn_id,
+		"connection_id": connId,
 	}).Debug("SQL execute query received:")
 
 	_, err = dbConn.Exec(query)

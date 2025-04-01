@@ -153,7 +153,6 @@ func (o *DbList) Delete(id string) {
 func (o *DbList) PutPreparedStatement(id string, stmt *sql.Stmt) (string, bool) {
 	val, ok := o.items.Load(id)
 	if !ok {
-		app.Log.Errorf("SQL connection with guid='%s' not found", id)
 		return "", false
 	}
 
@@ -170,15 +169,14 @@ func (o *DbList) PutPreparedStatement(id string, stmt *sql.Stmt) (string, bool) 
 }
 
 // Gets SQL prepared statement
-func (o *DbList) GetPreparedStatement(conn_id, stmt_id string) (*sql.Stmt, bool) {
-	val, ok := o.items.Load(conn_id)
+func (o *DbList) GetPreparedStatement(connId, stmtId string) (*sql.Stmt, bool) {
+	val, ok := o.items.Load(connId)
 	if !ok {
-		app.Log.Errorf("SQL connection with guid='%s' not found", conn_id)
 		return nil, false
 	}
 	res := val.(*DbConn)
-	for i := 0; i < len(res.Stmt); i++ {
-		if res.Stmt[i].Id == stmt_id {
+	for i := range res.Stmt {
+		if res.Stmt[i].Id == stmtId {
 			return res.Stmt[i].Stmt, true
 		}
 	}
@@ -186,21 +184,20 @@ func (o *DbList) GetPreparedStatement(conn_id, stmt_id string) (*sql.Stmt, bool)
 }
 
 // Closes and deletes SQL prepared statement
-func (o *DbList) ClosePreparedStatement(conn_id, stmt_id string) bool {
-	val, ok := o.items.Load(conn_id)
+func (o *DbList) ClosePreparedStatement(connId, stmtId string) bool {
+	val, ok := o.items.Load(connId)
 	if !ok {
-		app.Log.Errorf("SQL connection with guid='%s' not found", conn_id)
 		return false
 	}
 	res := val.(*DbConn)
 	for i := range res.Stmt {
-		if res.Stmt[i].Id == stmt_id {
+		if res.Stmt[i].Id == stmtId {
 			res.Stmt[i].Stmt.Close()
 			res.Stmt = slices.Delete(res.Stmt, i, i+1)
 			break
 		}
 	}
-	o.items.Store(conn_id, res)
+	o.items.Store(connId, res)
 	return true
 }
 

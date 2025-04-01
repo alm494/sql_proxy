@@ -16,11 +16,10 @@ func CreateConnection(w http.ResponseWriter, r *http.Request) {
 
 	if connGuid, ok := db.Handler.GetByParams(&dbConnInfo); !ok {
 		errorResponce(w, "Failed to get SQL connection", http.StatusInternalServerError)
-	} else {
-		if _, err := w.Write([]byte(connGuid)); err != nil {
-			errorResponce(w, err.Error(), http.StatusInternalServerError)
-		}
+	} else if _, err := w.Write([]byte(connGuid)); err != nil {
+		errorResponce(w, err.Error(), http.StatusInternalServerError)
 	}
+
 }
 
 func CloseConnection(w http.ResponseWriter, r *http.Request) {

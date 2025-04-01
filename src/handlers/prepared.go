@@ -1,58 +1,79 @@
 package handlers
 
 import (
-	"encoding/json"
 	"net/http"
+	"net/url"
+	"sql-proxy/src/app"
 	"sql-proxy/src/db"
+
+	"github.com/sirupsen/logrus"
 )
 
 func PrepareStatement(w http.ResponseWriter, r *http.Request) {
-	var requestBody map[string]any
 
-	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
-		errorResponce(w, "Error decoding JSON", http.StatusBadRequest)
+	connId := r.Header.Get("Connection-Id")
+	preparedStatement, err := url.QueryUnescape(r.Header.Get("Prepared-Statement"))
+
+	if err != nil || connId == "" || preparedStatement == "" {
+		errorResponce(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 
-	defer r.Body.Close()
+	app.Log.WithFields(logrus.Fields{
+		"prepared_statement": preparedStatement,
+		"connection_id":      connId,
+	}).Debug("Prepare statement received:")
 
-	conn, ok := db.Handler.GetById(requestBody["connection_id"].(string), true)
+	conn, ok := db.Handler.GetById(connId, true)
 	if !ok {
-		errorResponce(w, "Invalid connection id", http.StatusBadRequest)
+		errorResponce(w, "Invalid connection id", http.StatusForbidden)
 		return
 	}
 
-	stmt, err := conn.Prepare(requestBody["sql"].(string))
+	stmt, err := conn.Prepare(preparedStatement)
 	if err != nil {
 		errorResponce(w, err.Error(), http.StatusBadRequest)
 	}
 
-	stmt_id, ok := db.Handler.PutPreparedStatement(requestBody["connection_id"].(string), stmt)
+	stmtId, ok := db.Handler.PutPreparedStatement(connId, stmt)
 	if !ok {
 		errorResponce(w, err.Error(), http.StatusInternalServerError)
 	}
 
-	if _, err = w.Write([]byte(stmt_id)); err != nil {
+	if _, err = w.Write([]byte(stmtId)); err != nil {
 		errorResponce(w, err.Error(), http.StatusInternalServerError)
 	}
+
 }
 
 func PreparedSelect(w http.ResponseWriter, r *http.Request) {
-	var requestBody map[string]any
-
-	if err := json.NewDecoder(r.Body).Decode(&requestBody); err != nil {
-		errorResponce(w, "Error decoding JSON", http.StatusBadRequest)
-		return
-	}
-	defer r.Body.Close()
 
 	// to do
+
 }
 
 func PreparedExecute(w http.ResponseWriter, r *http.Request) {
+
 	// to do
 }
 
 func ClosePreparedStatement(w http.ResponseWriter, r *http.Request) {
-	// to do
+
+	connId := r.Header.Get("Connection-Id")
+	stmtId := r.Header.Get("Statement-Id")
+
+	if connId == "" || stmtId == "" {
+		errorResponce(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+
+	app.Log.WithFields(logrus.Fields{
+		"connection_id":      connId,
+		"prepared_statement": stmtId,
+	}).Debug("Delete prepared statememt received:")
+
+	if ok := db.Handler.ClosePreparedStatement(connId, stmtId); !ok {
+		errorResponce(w, "Forbidden", http.StatusForbidden)
+	}
+
 }
