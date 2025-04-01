@@ -4,6 +4,12 @@
 
 A lightweight REST service designed to replace ADODB calls in legacy software systems that support web requests. This service streamlines database interactions while maintaining security and efficiency.
 
+For example, you can remove all Linux-incompatible components, such as the following items, and use web requests in a similar manner instead:
+'''
+Connection = New COMObject("ADODB.Connection");
+RecordSet = New COMObject("ADODB.Recordset");
+'''
+
 ## Key features:
 
 * Multi-Database Support : Compatible with PostgreSQL, Microsoft SQL Server, and MySQL databases. Additional standard Golang database drivers can be integrated as needed;
