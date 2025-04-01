@@ -22,7 +22,7 @@ func PrepareStatement(w http.ResponseWriter, r *http.Request) {
 	app.Log.WithFields(logrus.Fields{
 		"prepared_statement": preparedStatement,
 		"connection_id":      connId,
-	}).Debug("Prepare statement received:")
+	}).Debug("Prepared statement received:")
 
 	conn, ok := db.Handler.GetById(connId, true)
 	if !ok {
