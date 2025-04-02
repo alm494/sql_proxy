@@ -136,13 +136,6 @@ paths:
           description: SQL connection id as GUID in a plain text, must be obtained by /connection POST method.
           required: true
           example: "52f0b434-4eae-4cc6-803c-2d2f604fe16c"
-        - in: header
-          name: SQL-Statement
-          schema:
-            type: string
-          description: SQL statement (url-encoded).
-          required: true
-          example: "DELETE FROM SALES WHERE id = 783"
       requestBody:
         description: SQL query text.
         required: true
