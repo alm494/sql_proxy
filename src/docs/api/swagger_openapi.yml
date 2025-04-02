@@ -1,0 +1,437 @@
+openapi: "3.0.3"
+info:
+  title: SQL Proxy
+  version: "1.2"
+servers:
+  - url: http://localhost/api/v1
+
+paths:
+  /connection:
+    post:
+      summary: Establish SQL connection
+      description: First, check if an SQL connection has already been established. If not, create a new connection and add it to the application pool.
+      parameters:
+        - in: header
+          name: API-Version
+          schema:
+            type: string
+          description: API version
+          required: true
+          example: 1.2
+      requestBody:
+        description: Provide SQL connection properties and credentials.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConnectionProperties"
+
+      responses:
+        "200":
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: return SQL connection id as GUID in a plain text.
+                example: "52f0b434-4eae-4cc6-803c-2d2f604fe16c"
+
+        "400":
+          description: Error decoding JSON
+
+        "500":
+          description: Failed to get SQL connection
+
+        "501":
+          description: Not implemented
+
+    delete:
+      summary: Close SQL connection
+      description: Close and explicitly remove the SQL connection from the application pool.
+      parameters:
+        - in: header
+          name: API-Version
+          schema:
+            type: string
+          description: API version
+          required: true
+          example: 1.2
+
+        - in: header
+          name: Connection-Id
+          schema:
+            type: string
+          description: SQL connection id as GUID in a plain text.
+          required: true
+          example: "52f0b434-4eae-4cc6-803c-2d2f604fe16c"
+
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "501":
+          description: Not implemented
+
+  /query:
+    post:
+      summary: Execute select queries
+      description: Use this method to execute any SQL query that is expected to return a result as a table, such as a SELECT statement. The resulting table is wrapped into a flexible JSON object, with columns dynamically determined based on the query. This method uses POST instead of GET to have a capability for large SQL queries.
+      parameters:
+        - in: header
+          name: API-Version
+          schema:
+            type: string
+          description: API version
+          required: true
+          example: 1.2
+        - in: header
+          name: Connection-Id
+          schema:
+            type: string
+          description: SQL connection id as GUID in a plain text, must be obtained by /connection POST method.
+          required: true
+          example: "52f0b434-4eae-4cc6-803c-2d2f604fe16c"
+      requestBody:
+        description: SQL query text
+        required: true
+        content:
+          text/plain:
+            schema:
+              type: string
+              example: SELECT * FROM SALES WHERE Title LIKE "Manager %"
+
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+                description: SQL query result in a JSON envelope.
+        "400":
+          description: Bad request
+        "403":
+          description: Forbidden
+        "500":
+          description: Internal server error
+        "501":
+          description: Not implemented
+
+    put:
+      summary: Execute change queries
+      description: Use this method to execute any SQL query that does not return a result as a table, such as INSERT, DELETE, or similar operations.
+      parameters:
+        - in: header
+          name: API-Version
+          schema:
+            type: string
+          description: API version
+          required: true
+          example: 1.2
+        - in: header
+          name: Connection-Id
+          schema:
+            type: string
+          description: SQL connection id as GUID in a plain text, must be obtained by /connection POST method.
+          required: true
+          example: "52f0b434-4eae-4cc6-803c-2d2f604fe16c"
+        - in: header
+          name: SQL-Statement
+          schema:
+            type: string
+          description: SQL statement (url-encoded).
+          required: true
+          example: "DELETE FROM SALES WHERE id = 783"
+      requestBody:
+        description: SQL query text.
+        required: true
+        content:
+          text/plain:
+            schema:
+              type: string
+              example: DELETE FROM SALES WHERE id = 783
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "403":
+          description: Forbidden
+        "501":
+          description: Not implemented
+
+  /prepared:
+    post:
+      summary: Create prepared statement
+      description: "Create prepared statement"
+      parameters:
+        - in: header
+          name: API-Version
+          schema:
+            type: string
+          description: API version
+          required: true
+          example: 1.2
+        - in: header
+          name: Connection-Id
+          schema:
+            type: string
+          description: SQL connection id as GUID in a plain text, must be obtained by /connection POST method.
+          required: true
+          example: "52f0b434-4eae-4cc6-803c-2d2f604fe16c"
+      
+      requestBody:
+        description: SQL prepared statement text
+        required: true
+        content:
+          text/plain:
+            schema:
+              type: string
+              example: SELECT * SALES WHERE id = ? and name = ?
+
+      responses:
+        "200":
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: string
+                description: return SQL prepared statement id as GUID in a plain text.
+                example: "f3f0b434-e4ae-c4c6-c803-d22f504fe16c"
+        "400":
+          description: Bad request
+        "403":
+          description: Forbidden
+        "500":
+          description: Internal server error
+        "501":
+          description: Not implemented
+
+    delete:
+      summary: Close prepared statement
+      description: Close and delete prepared statement.
+      parameters:
+        - in: header
+          name: API-Version
+          schema:
+            type: string
+          description: API version
+          required: true
+          example: 1.2
+        - in: header
+          name: Connection-Id
+          schema:
+            type: string
+          description: SQL connection id as GUID in a plain text.
+          required: true
+          example: "52f0b434-4eae-4cc6-803c-2d2f604fe16c"
+        - in: header
+          name: Statement-Id
+          schema:
+            type: string
+          description: Prepared statement id as GUID in a plain text.
+          required: true
+          example: "f3f0b434-e4ae-c4c6-c803-d22f504fe16c"
+
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "403":
+          description: Forbidden
+        "501":
+          description: Not implemented
+
+  /prepared/query:
+    post:
+      summary: Execute prepared statement for select
+      description: Use this method to execute any prepared statement that is expected to return a result as a table, such as a SELECT statement. The resulting table is wrapped into a flexible JSON object, with columns dynamically determined based on the query. This method uses POST instead of GET to have a capability for large SQL queries.
+      parameters:
+        - in: header
+          name: API-Version
+          schema:
+            type: string
+          description: API version
+          required: true
+          example: 1.2
+        - in: header
+          name: Connection-Id
+          schema:
+            type: string
+          description: SQL connection id as GUID in a plain text, must be obtained by /connection POST method.
+          required: true
+          example: "52f0b434-4eae-4cc6-803c-2d2f604fe16c"
+        - in: header
+          name: Statement-Id
+          schema:
+            type: string
+          description: Prepared statement id as GUID in a plain text.
+          required: true
+          example: f3f0b434-e4ae-c4c6-c803-d22f504fe16c"
+      requestBody:
+        description: Prepared statement parameters in JSON array
+        required: false
+        content:
+          application/json:
+            schema: 
+              $ref: "#/components/schemas/PreparedStatementParameters"
+
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseEnvelope"
+                description: SQL query result in a JSON envelope.
+        "400":
+          description: Bad request
+        "403":
+          description: Forbidden
+        "500":
+          description: Internal server error
+        "501":
+          description: Not implemented
+
+    put:
+      summary: Execute prepared statement for change
+      description: Use this method to execute any SQL query that does not return a result as a table, such as INSERT, DELETE, or similar operations.
+      parameters:
+        - in: header
+          name: API-Version
+          schema:
+            type: string
+          description: API version
+          required: true
+          example: 1.2
+        - in: header
+          name: Connection-Id
+          schema:
+            type: string
+          description: SQL connection id as GUID in a plain text, must be obtained by /connection POST method.
+          required: true
+          example: "52f0b434-4eae-4cc6-803c-2d2f604fe16c"
+        - in: header
+          name: Statement-Id
+          schema:
+            type: string
+          description: Prepared statement id as GUID in a plain text.
+          required: true
+          example: f3f0b434-e4ae-c4c6-c803-d22f504fe16c"
+      requestBody:
+        description: Prepared statement parameters in JSON array
+        required: false
+        content:
+          application/json:
+            schema: 
+              $ref: "#/components/schemas/PreparedStatementParameters"
+
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "403":
+          description: Forbidden
+        "500":
+          description: Internal server error
+        "501":
+          description: Not implemented
+
+components:
+  schemas:
+    ConnectionProperties:
+      type: object
+      properties:
+        db_type:
+          type: string
+          description: "One of the following values: postgres, sqlserver, mysql"
+          example: "postgres"
+          nullable: false
+        host:
+          type: string
+          description: "SQL server name or IP (ipv4, ipv6)"
+          example: "localhost.local"
+          nullable: false
+        port:
+          type: integer
+          description: "SQL server IP port"
+          minimum: 1000
+          maximum: 65535
+          example: 5442
+          nullable: false
+        user:
+          type: string
+          description: "Credentials: user name"
+          example: "MyServiceAccount"
+          nullable: false
+        password:
+          type: string
+          description: "Credentials: password"
+          example: "MyServicePassword"
+          nullable: false
+        db_name:
+          type: string
+          description: "Database name"
+          example: "Sales"
+          nullable: false
+        ssl:
+          type: boolean
+          description: "Postgres specific to enable SSL"
+          default: false
+          nullable: true
+
+    ResponseEnvelope:
+      type: object
+      nullable: false
+      properties:
+        api_version:
+          type: integer
+          default: 1.2
+          description: API version
+          example: 1.2
+          nullable: false
+        connection_id:
+          type: string
+          description: SQL connection id as GUID in a plain text
+          example: "52f0b434-4eae-4cc6-803c-2d2f604fe16c"
+          nullable: true
+        info:
+          type: string
+          description: Optional additional info
+          example: nice query
+          nullable: true
+        rows_count:
+          type: integer
+          description: Count of rows returned
+          example: 1
+          nullable: false
+        exceeds_max_rows:
+          type: boolean
+          description: Indicates if MAX_ROWS parameter was exceeded
+          example: false
+          default: false
+          nullable: false
+        rows:
+          nullable: false
+          type: array
+          items:
+            nullable: false
+            type: object
+          description: A table with flexible rows, converted from the query result (an array of JSON objects).
+          example: '[ { "id": 7, "name": "Bill"} ]'
+          
+    PreparedStatementParameters:
+      type: array
+      items:
+        nullable: true
+        oneOf:
+          - type: string
+          - type: number
+          - type: integer
+          - type: boolean
+      example: "[10, 'North Pole', true, '2012-04-23T18:25:43.511Z']"
+      nullable: true
+

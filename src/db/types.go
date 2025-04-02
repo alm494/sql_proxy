@@ -10,6 +10,7 @@ import (
 // with concurrent read/write access
 type DbList struct {
 	items sync.Map
+	mu    sync.Mutex
 }
 
 // Keeps SQL Db connection information

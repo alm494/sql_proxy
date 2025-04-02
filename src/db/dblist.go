@@ -151,6 +151,9 @@ func (o *DbList) Delete(id string) {
 
 // Saves SQL prepared statement
 func (o *DbList) PutPreparedStatement(id string, stmt *sql.Stmt) (string, bool) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
 	val, ok := o.items.Load(id)
 	if !ok {
 		return "", false
@@ -158,13 +161,14 @@ func (o *DbList) PutPreparedStatement(id string, stmt *sql.Stmt) (string, bool) 
 
 	newId := uuid.New().String()
 	dbStmt := DbStmt{
-		Id:   newId,
-		Stmt: stmt,
+		Id:        newId,
+		Stmt:      stmt,
+		Timestamp: time.Now(),
 	}
 	res := val.(*DbConn)
 	res.Timestamp = time.Now()
 	res.Stmt = append(res.Stmt, dbStmt)
-	o.items.Store(id, res)
+	//o.items.Store(id, res)
 	return newId, true
 }
 
@@ -214,6 +218,8 @@ func (o *DbList) RunMaintenance() {
 		var deadItems []string
 		var countConn, countDeadConn, countStmt int
 
+		o.mu.Lock()
+
 		o.items.Range(
 			func(key, value any) bool {
 				var lostStmts []string
@@ -259,6 +265,8 @@ func (o *DbList) RunMaintenance() {
 			conn.Close()
 			o.Delete(item)
 		}
+
+		o.mu.Unlock()
 
 		app.Log.Debugf("Regular task: SQL connection pool size = %d", countConn)
 		app.Log.Debugf("Regular task: %d dead connections removed", countDeadConn)

@@ -7,7 +7,12 @@ import (
 )
 
 func CreateConnection(w http.ResponseWriter, r *http.Request) {
+
 	var dbConnInfo db.DbConnInfo
+
+	if ok := checkApiVersion(w, r); !ok {
+		return
+	}
 
 	if err := json.NewDecoder(r.Body).Decode(&dbConnInfo); err != nil {
 		errorResponce(w, "Error decoding JSON", http.StatusBadRequest)
@@ -23,10 +28,16 @@ func CreateConnection(w http.ResponseWriter, r *http.Request) {
 }
 
 func CloseConnection(w http.ResponseWriter, r *http.Request) {
+
+	if ok := checkApiVersion(w, r); !ok {
+		return
+	}
+
 	connId := r.Header.Get("Connection-Id")
 	if connId == "" {
 		errorResponce(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 	db.Handler.Delete(connId)
+
 }

@@ -1,9 +1,8 @@
 package handlers
 
 import (
-	"encoding/json"
+	"io"
 	"net/http"
-	"net/url"
 
 	"sql-proxy/src/app"
 	"sql-proxy/src/db"
@@ -13,64 +12,14 @@ import (
 
 func SelectQuery(w http.ResponseWriter, r *http.Request) {
 
-	connId := r.Header.Get("Connection-Id")
-	query, err := url.QueryUnescape(r.Header.Get("SQL-Statement"))
-
-	if err != nil || connId == "" || query == "" {
-		errorResponce(w, "Bad request", http.StatusBadRequest)
+	if ok := checkApiVersion(w, r); !ok {
 		return
 	}
 
-	app.Log.WithFields(logrus.Fields{
-		"sql":           query,
-		"connection_id": connId,
-	}).Debug("SQL query received:")
-
-	// Search existings connection in the pool
-	dbConn, ok := db.Handler.GetById(connId, true)
+	connId, sqlQuery, ok := parseQueryHttpHeadersAndBody(w, r)
 	if !ok {
-		errorResponce(w, "Failed to get SQL connection", http.StatusForbidden)
 		return
 	}
-
-	rows, err := dbConn.Query(query)
-	if err != nil {
-		errorResponce(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-
-	columns, err := rows.Columns()
-	if err != nil {
-		errorResponce(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	tableData, rowsCount, exceedsMaxRows := convertRows(rows, &columns)
-
-	var envelope ResponseEnvelope
-	envelope.RowsCount = rowsCount
-	envelope.ExceedsMaxRows = exceedsMaxRows
-	envelope.Rows = *tableData
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(envelope)
-}
-
-func ExecuteQuery(w http.ResponseWriter, r *http.Request) {
-
-	connId := r.Header.Get("Connection-Id")
-	query, err := url.QueryUnescape(r.Header.Get("SQL-Statement"))
-
-	if err != nil || connId == "" || query == "" {
-		errorResponce(w, "Bad request", http.StatusBadRequest)
-		return
-	}
-
-	app.Log.WithFields(logrus.Fields{
-		"sql":           query,
-		"connection_id": connId,
-	}).Debug("SQL query received:")
 
 	dbConn, ok := db.Handler.GetById(connId, true)
 	if !ok {
@@ -78,13 +27,58 @@ func ExecuteQuery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	app.Log.WithFields(logrus.Fields{
-		"sql":           query,
-		"connection_id": connId,
-	}).Debug("SQL execute query received:")
+	rows, err := dbConn.Query(sqlQuery)
+	if err != nil {
+		errorResponce(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
 
-	_, err = dbConn.Exec(query)
+	tableResponce(w, rows)
+
+}
+
+func ExecuteQuery(w http.ResponseWriter, r *http.Request) {
+
+	if ok := checkApiVersion(w, r); !ok {
+		return
+	}
+
+	connId, sqlQuery, ok := parseQueryHttpHeadersAndBody(w, r)
+	if !ok {
+		return
+	}
+
+	dbConn, ok := db.Handler.GetById(connId, true)
+	if !ok {
+		errorResponce(w, "Invalid connection id", http.StatusForbidden)
+		return
+	}
+
+	_, err := dbConn.Exec(sqlQuery)
 	if err != nil {
 		errorResponce(w, err.Error(), http.StatusBadRequest)
 	}
+
+}
+
+func parseQueryHttpHeadersAndBody(w http.ResponseWriter, r *http.Request) (string, string, bool) {
+
+	connId := r.Header.Get("Connection-Id")
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil || connId == "" || len(body) == 0 {
+		errorResponce(w, "Bad request", http.StatusBadRequest)
+		return "", "", false
+	}
+	defer r.Body.Close()
+
+	sqlQuery := string(body)
+	app.Log.WithFields(logrus.Fields{
+		"sql":           sqlQuery,
+		"connection_id": connId,
+	}).Debug("SQL query received:")
+
+	return connId, sqlQuery, true
+
 }
