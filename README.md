@@ -4,7 +4,7 @@
 
 A lightweight REST service designed to replace ADODB calls in legacy software systems that support web requests. This service streamlines database interactions while maintaining security and efficiency.
 
-For example, you can remove all Linux-incompatible components, such as the following items: 
+For example, you can remove all Linux-incompatible components, such as the following items (1C:Enterprise example): 
 ```
 Connection = New COMObject("ADODB.Connection");
 Connection.Open(ConnectionString);
@@ -17,7 +17,8 @@ Function OpenSQLConnection(ConnectionString) Export
   Path = "/api/v1/connection";
   ...
 ```
-
+Refer to the full example for the 1C:Enterprise language in the src/doc folder to learn how to use this API.
+Note that this service is not limited to 1C and can be utilized in other contexts as well.
 
 ## Key features:
 
@@ -34,7 +35,7 @@ Function OpenSQLConnection(ConnectionString) Export
 
 ## API description
 
-See Swagger OpenAPI 3.0 specification in /src/docs/api
+See Swagger OpenAPI 3.0 specification in src/docs/api
 
 ## How to compile
 
