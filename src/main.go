@@ -24,6 +24,9 @@ func main() {
 	tlsCert := app.GetEnvString("TLS_CERT", "")
 	tlsKey := app.GetEnvString("TLS_KEY", "")
 
+	// Init connections handler map
+	db.Handler.Init()
+
 	// Scheduled maintenance task
 	go db.Handler.RunMaintenance()
 

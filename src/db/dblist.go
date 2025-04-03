@@ -15,20 +15,35 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// *** SQL connections ***
+// Init map
+func (o *DbList) Init() {
+
+	items := make(map[string]DbConn)
+	o.items = items
+
+}
 
 // Gets SQL server connection by GUID
 func (o *DbList) GetById(id string, updateTimestamp bool) (*sql.DB, bool) {
-	if val, ok := o.items.Load(id); ok {
-		res := val.(*DbConn)
+
+	o.mu.RLock()
+
+	if dbConn, ok := o.items[id]; ok {
 		if updateTimestamp {
-			res.Timestamp = time.Now()
-			o.items.Store(id, res)
+			o.mu.RUnlock()
+			o.mu.Lock()
+			dbConn.Timestamp = time.Now()
+			o.items[id] = dbConn
+			o.mu.Unlock()
 		}
-		return res.DB, true
+		return dbConn.DB, true
 	}
+
+	o.mu.RUnlock()
+
 	app.Log.Errorf("SQL connection with guid='%s' not found", id)
 	return nil, false
+
 }
 
 // Gets the new SQL server connection with parameters given.
@@ -41,49 +56,56 @@ func (o *DbList) GetByParams(connInfo *DbConnInfo) (string, bool) {
 		return errMsg, false
 	}
 
-	// Step 1. Search existing connection by hash to reuse
 	guid := ""
-	o.items.Range(
-		func(key, value any) bool {
-			if bytes.Equal(value.(*DbConn).Hash[:], hash[:]) {
-				guid = key.(string)
-				app.Log.Debugf("DB connection with id %s found in the pool", guid)
-				return false // stop iteraton
-			}
-			return true // continue iteration
-		})
 
-	// Step 2. Perform checks and return guid if passed
-	if len(guid) > 0 {
-		if conn, ok := o.items.Load(guid); ok {
-			if err = conn.(*DbConn).DB.Ping(); err == nil {
+	o.mu.RLock()
+
+	for key, dbConn := range o.items {
+
+		// Search existing connection by hash to reuse
+		if bytes.Equal(dbConn.Hash[:], hash[:]) {
+			guid = key
+			app.Log.Debugf("DB connection with id %s found in the pool", guid)
+
+			// Perform checks
+			if err = dbConn.DB.Ping(); err == nil {
+				o.mu.RUnlock()
 				// Everything is ok, return guid
 				return guid, true
 			} else {
-				// Remove dead connection from the pool
-				o.items.Delete(guid)
+				// Bad connection, need to clean
+				o.mu.RUnlock()
+				o.mu.Lock()
+				delete(o.items, guid)
+				o.mu.Unlock()
+				o.mu.RLock()
 				app.Log.Debugf("DB connection with id %s is dead and removed from the pool", guid)
 			}
-
 		}
 	}
 
-	// Step 3. Nothing found, create the new
+	o.mu.RUnlock()
+
+	// At this step nothing found, create the new
 	return o.getNewConnection(connInfo, hash)
 }
 
 // Creates the new SQL connection regarding concurrency
 func (o *DbList) getNewConnection(connInfo *DbConnInfo, hash [32]byte) (string, bool) {
-	// 1. Prepare DSN string
+
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
+	// Prepare DSN string
 	var dsn string
 
 	encodedPassword := url.QueryEscape(connInfo.Password)
 
 	switch connInfo.DbType {
 	case "postgres":
-		sslMode := "enable"
-		if !connInfo.SSL {
-			sslMode = "disable"
+		sslMode := "disable"
+		if connInfo.SSL {
+			sslMode = "enable"
 		}
 		dsn = fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
 			connInfo.Host, connInfo.Port, connInfo.User, encodedPassword, connInfo.DbName, sslMode)
@@ -99,27 +121,27 @@ func (o *DbList) getNewConnection(connInfo *DbConnInfo, hash [32]byte) (string, 
 		return errMsg, false
 	}
 
-	// 2. Open new SQL server connection
+	// Open new SQL server connection
 	var err error
 	var newDb *sql.DB
 
 	newDb, err = sql.Open(connInfo.DbType, dsn)
 
-	// 3. Check for failure
+	// Check for failure
 	if err != nil {
 		errMsg := "Error establishing SQL server connection"
 		app.Log.WithError(err).Error(errMsg)
 		return errMsg, false
 	}
 
-	// 4. Check if alive
+	// Check if alive
 	if err = newDb.Ping(); err != nil {
 		errMsg := "Just created SQL connection is dead"
 		app.Log.WithError(err).Error(errMsg)
 		return errMsg, false
 	}
 
-	// 5. Insert into pool
+	// Insert into pool
 	newId := uuid.New().String()
 	newItem := DbConn{
 		Hash:      hash,
@@ -127,7 +149,7 @@ func (o *DbList) getNewConnection(connInfo *DbConnInfo, hash [32]byte) (string, 
 		Timestamp: time.Now(),
 	}
 
-	o.items.Store(newId, &newItem)
+	o.items[newId] = newItem
 
 	app.Log.WithFields(logrus.Fields{
 		"Host":   connInfo.Host,
@@ -143,18 +165,23 @@ func (o *DbList) getNewConnection(connInfo *DbConnInfo, hash [32]byte) (string, 
 
 // Deletes SQL server connection
 func (o *DbList) Delete(id string) {
-	o.items.Delete(id)
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
+	delete(o.items, id)
 	app.Log.Debugf("DB connection with id %s was deleted by query", id)
+
 }
 
 // *** SQL prepared statements ***
 
 // Saves SQL prepared statement
 func (o *DbList) PutPreparedStatement(id string, stmt *sql.Stmt) (string, bool) {
+
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	val, ok := o.items.Load(id)
+	dbConn, ok := o.items[id]
 	if !ok {
 		return "", false
 	}
@@ -165,23 +192,28 @@ func (o *DbList) PutPreparedStatement(id string, stmt *sql.Stmt) (string, bool) 
 		Stmt:      stmt,
 		Timestamp: time.Now(),
 	}
-	res := val.(*DbConn)
-	res.Timestamp = time.Now()
-	res.Stmt = append(res.Stmt, dbStmt)
-	//o.items.Store(id, res)
+
+	dbConn.Timestamp = time.Now()
+	dbConn.Stmt = append(dbConn.Stmt, dbStmt)
+	o.items[id] = dbConn
+
 	return newId, true
 }
 
 // Gets SQL prepared statement
 func (o *DbList) GetPreparedStatement(connId, stmtId string) (*sql.Stmt, bool) {
-	val, ok := o.items.Load(connId)
+
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+
+	dbConn, ok := o.items[connId]
 	if !ok {
 		return nil, false
 	}
-	res := val.(*DbConn)
-	for i := range res.Stmt {
-		if res.Stmt[i].Id == stmtId {
-			return res.Stmt[i].Stmt, true
+
+	for i := range dbConn.Stmt {
+		if dbConn.Stmt[i].Id == stmtId {
+			return dbConn.Stmt[i].Stmt, true
 		}
 	}
 	return nil, false
@@ -189,26 +221,30 @@ func (o *DbList) GetPreparedStatement(connId, stmtId string) (*sql.Stmt, bool) {
 
 // Closes and deletes SQL prepared statement
 func (o *DbList) ClosePreparedStatement(connId, stmtId string) bool {
-	val, ok := o.items.Load(connId)
+
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
+	dbConn, ok := o.items[connId]
 	if !ok {
 		return false
 	}
-	res := val.(*DbConn)
-	for i := range res.Stmt {
-		if res.Stmt[i].Id == stmtId {
-			res.Stmt[i].Stmt.Close()
-			res.Stmt = slices.Delete(res.Stmt, i, i+1)
+	for i := range dbConn.Stmt {
+		if dbConn.Stmt[i].Id == stmtId {
+			dbConn.Stmt[i].Stmt.Close()
+			dbConn.Stmt = slices.Delete(dbConn.Stmt, i, i+1)
 			break
 		}
 	}
-	o.items.Store(connId, res)
+
 	return true
+
 }
 
 // *** Maintenance ***
 
 func (o *DbList) RunMaintenance() {
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(120 * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -220,50 +256,48 @@ func (o *DbList) RunMaintenance() {
 
 		o.mu.Lock()
 
-		o.items.Range(
-			func(key, value any) bool {
-				var lostStmts []string
-				countConn++
-				dbConn := value.(*DbConn)
+		for key, dbConn := range o.items {
 
-				err := dbConn.DB.Ping()
-				if err != nil {
-					// dead connection
-					deadItems = append(deadItems, key.(string))
-					countDeadConn++
-				} else if time.Since(dbConn.Timestamp).Abs().Minutes() > 20 {
-					// connection not used for last 20 minutes
-					deadItems = append(deadItems, key.(string))
-					countDeadConn++
+			var lostStmts []string
+			countConn++
+
+			if err := dbConn.DB.Ping(); err != nil {
+				// dead connection
+				deadItems = append(deadItems, key)
+				countDeadConn++
+			} else if time.Since(dbConn.Timestamp).Abs().Minutes() > 20 {
+				// connection not used for last 20 minutes
+				deadItems = append(deadItems, key)
+				countDeadConn++
+			}
+
+			// check prepared statements
+			for _, stmt := range dbConn.Stmt {
+				// prepared statements not used last 20 minutes
+				if time.Since(stmt.Timestamp).Abs().Minutes() > 20 {
+					lostStmts = append(lostStmts, stmt.Id)
+					countStmt++
 				}
+			}
 
-				for _, stmt := range dbConn.Stmt {
-					// prepared statements not used last 20 minutes
-					if time.Since(stmt.Timestamp).Abs().Minutes() > 20 {
-						lostStmts = append(lostStmts, stmt.Id)
-						countStmt++
+			// delete lost prepared statements
+			for _, lost := range lostStmts {
+				for i := 0; i < len(dbConn.Stmt); i++ {
+					if dbConn.Stmt[i].Id == lost {
+						dbConn.Stmt[i].Stmt.Close()
+						dbConn.Stmt = slices.Delete(dbConn.Stmt, i, i+1)
+						break
 					}
 				}
+			}
 
-				// delete lost prepared statements
-				for _, lost := range lostStmts {
-					for i := 0; i < len(dbConn.Stmt); i++ {
-						if dbConn.Stmt[i].Id == lost {
-							dbConn.Stmt[i].Stmt.Close()
-							dbConn.Stmt = slices.Delete(dbConn.Stmt, i, i+1)
-							break
-						}
-					}
-				}
-
-				return true // continue iteration
-			})
+		}
 
 		// remove dead connections
 		for _, item := range deadItems {
 			conn, _ := o.GetById(item, false)
 			conn.Close()
-			o.Delete(item)
+			delete(o.items, item)
 		}
 
 		o.mu.Unlock()

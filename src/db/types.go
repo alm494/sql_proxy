@@ -9,8 +9,8 @@ import (
 // Class model to keep open SQL connections in the pool
 // with concurrent read/write access
 type DbList struct {
-	items sync.Map
-	mu    sync.Mutex
+	items map[string]DbConn
+	mu    sync.RWMutex
 }
 
 // Keeps SQL Db connection information
