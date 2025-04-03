@@ -244,7 +244,7 @@ func (o *DbList) ClosePreparedStatement(connId, stmtId string) bool {
 // *** Maintenance ***
 
 func (o *DbList) RunMaintenance() {
-	ticker := time.NewTicker(120 * time.Second)
+	ticker := time.NewTicker(2 * time.Minute)
 	defer ticker.Stop()
 
 	for {
@@ -282,7 +282,7 @@ func (o *DbList) RunMaintenance() {
 
 			// delete lost prepared statements
 			for _, lost := range lostStmts {
-				for i := 0; i < len(dbConn.Stmt); i++ {
+				for i := range dbConn.Stmt {
 					if dbConn.Stmt[i].Id == lost {
 						dbConn.Stmt[i].Stmt.Close()
 						dbConn.Stmt = slices.Delete(dbConn.Stmt, i, i+1)
@@ -295,8 +295,8 @@ func (o *DbList) RunMaintenance() {
 
 		// remove dead connections
 		for _, item := range deadItems {
-			conn, _ := o.GetById(item, false)
-			conn.Close()
+			dbConn := o.items[item]
+			dbConn.DB.Close()
 			delete(o.items, item)
 		}
 
