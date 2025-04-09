@@ -25,7 +25,8 @@ Note that this service is not limited to 1C and can be utilized in other context
 
 ## Key features:
 
-* Multi-Database Support : Compatible with PostgreSQL, Microsoft SQL Server, and MySQL databases. Additional standard Golang database drivers can be integrated as needed;
+* Multi-Database Support : Compatible with PostgreSQL, Microsoft SQL Server, and MySQL databases. You do not need to
+  install the driver packages and setup ODBC sources. Additional standard Golang database drivers can be integrated as needed with a few lines of code;
 * Secure Credential Management : Does not store SQL credentials, ensuring sensitive information remains protected;
 * Secure Communication : Supports HTTPS for secure data transmission;
 * Efficient Connection Pooling : Utilizes a shared, reusable SQL connection pool with automated maintenance tasks to remove stale or dead connections;
