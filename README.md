@@ -27,6 +27,7 @@ Note that this service is not limited to 1C and can be utilized in other context
 
 * Multi-Database Support : Compatible with PostgreSQL, Microsoft SQL Server, and MySQL databases. You do not need to
   install the driver packages and setup ODBC sources. Additional standard Golang database drivers can be integrated as needed with a few lines of code;
+* Run mode: Can be used as a standalone service or containerized within server environments such as k8s;
 * Secure Credential Management : Does not store SQL credentials, ensuring sensitive information remains protected;
 * Secure Communication : Supports HTTPS for secure data transmission;
 * Efficient Connection Pooling : Utilizes a shared, reusable SQL connection pool with automated maintenance tasks to remove stale or dead connections;
@@ -53,8 +54,9 @@ make prod
 
 ## How to run
 
-Settings are passed with environment variables, see Makefile for details:
+Settings may be passed with environment variables, see Makefile for details and default values:
 
 ```
 BIND_ADDR=localhost BIND_PORT=8081 MAX_ROWS=10000 LOG_LEVEL=3 sql-proxy
 ```
+
