@@ -44,7 +44,7 @@ func main() {
 	router.HandleFunc("/livez", handlers.Livez).Methods("GET")
 	router.Handle("/metrics", promhttp.Handler())
 
-	app.Log.Info("(c) 2025 Almaz Sharipov, GPL-3.0, https://github.com/alm494/sql_proxy")
+	app.Log.Info("(c) 2025 Almaz Sharipov, MIT license, https://github.com/alm494/sql_proxy")
 	app.Log.WithFields(logrus.Fields{
 		"build_version": app.BuildVersion,
 		"build_time":    app.BuildTime,
