@@ -19,6 +19,9 @@ func main() {
 	// Application params taken from OS environment
 	app.Log.SetLevel(logrus.Level(app.GetEnvInt("LOG_LEVEL", 2)))
 	bindAddress := app.GetEnvString("BIND_ADDR", "localhost")
+	if bindAddress == "*" {
+		bindAddress = ""
+	}
 	bindPort := app.GetEnvInt("BIND_PORT", 8080)
 	db.MaxRows = uint32(app.GetEnvInt("MAX_ROWS", 10000))
 	tlsCert := app.GetEnvString("TLS_CERT", "")
