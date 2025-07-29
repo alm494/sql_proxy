@@ -12,6 +12,7 @@ BUILD_WITH_MYSQL_TAG := mysql
 # Go compiler basic settings
 GOOS := linux
 GOARCH := amd64
+GOAMD64 := v2
 
 # Application settings to run:
 LOG_LEVEL := 6
@@ -32,7 +33,7 @@ clean:
 
 # Build for production
 prod: clean
-	GOOS=${GOOS} GOARCH=${GOARCH} go build $(TAGS) \
+	GOOS=${GOOS} GOARCH=${GOARCH} GOAMD64=${GOAMD64} go build $(TAGS) \
 		-ldflags="-s -w \
 		-X ${PROJECT_NAME}/src/app.BuildVersion=${BUILD_VERSION} \
 		-X ${PROJECT_NAME}/src/app.BuildTime=${BUILD_TIME}" -o $(BUILD_DIR)/$(PROJECT_NAME) $(GO_FILES)
