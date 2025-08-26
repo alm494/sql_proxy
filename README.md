@@ -35,7 +35,7 @@ Note that this service is not limited to 1C and can be utilized in other context
 * Result Limitation : Allows configuration to limit the number of rows returned by SELECT statements;
 * Prepared Statements : supported;
 * Flexible Binding : Can bind to localhost or any specified IP address for enhanced security. By default, it is intended to bind to localhost and run alongside legacy software;
-* Security Responsibility : Does not perform SQL query validation for security purposes. It is the responsibility of DBA to configure appropriate database privileges (keep in mind this is ADODB replacement);
+* Security Responsibility : Does not perform SQL query validation and any other security checks. It is the responsibility of DBA to configure appropriate database privileges (keep in mind this is ADODB replacement and all security related works must be done before);
 * Monitoring and Metrics : Provides Prometheus metrics for performance monitoring and observability; 
 
 ## API description
