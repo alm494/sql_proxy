@@ -12,7 +12,6 @@ import (
 	"slices"
 
 	"github.com/google/uuid"
-	"github.com/sirupsen/logrus"
 )
 
 // Init map
@@ -41,7 +40,7 @@ func (o *DbList) GetById(id string, updateTimestamp bool) (*sql.DB, bool) {
 
 	o.mu.RUnlock()
 
-	app.Log.Errorf("SQL connection with guid='%s' not found", id)
+	app.Logger.Errorf("SQL connection with guid='%s' not found", id)
 	return nil, false
 
 }
@@ -52,7 +51,7 @@ func (o *DbList) GetByParams(connInfo *DbConnInfo) (string, bool) {
 	hash, err := connInfo.GetHash()
 	if err != nil {
 		errMsg := "Hash calculation failed"
-		app.Log.WithError(err).Error(errMsg)
+		app.Logger.Error(errMsg)
 		return errMsg, false
 	}
 
@@ -65,7 +64,7 @@ func (o *DbList) GetByParams(connInfo *DbConnInfo) (string, bool) {
 		// Search existing connection by hash to reuse
 		if bytes.Equal(dbConn.Hash[:], hash[:]) {
 			guid = key
-			app.Log.Debugf("DB connection with id %s found in the pool", guid)
+			app.Logger.Infof("DB connection with id %s found in the pool", guid)
 
 			// Perform checks
 			if err = dbConn.DB.Ping(); err == nil {
@@ -79,7 +78,7 @@ func (o *DbList) GetByParams(connInfo *DbConnInfo) (string, bool) {
 				delete(o.items, guid)
 				o.mu.Unlock()
 				o.mu.RLock()
-				app.Log.Debugf("DB connection with id %s is dead and removed from the pool", guid)
+				app.Logger.Infof("DB connection with id %s is dead and removed from the pool", guid)
 			}
 		}
 	}
@@ -117,7 +116,7 @@ func (o *DbList) getNewConnection(connInfo *DbConnInfo, hash [32]byte) (string, 
 			connInfo.User, encodedPassword, connInfo.Host, connInfo.Port, connInfo.DbName)
 	default:
 		errMsg := fmt.Sprintf("No suitable driver implemented for server type '%s'", connInfo.DbType)
-		app.Log.Error(errMsg)
+		app.Logger.Error(errMsg)
 		return errMsg, false
 	}
 
@@ -130,14 +129,14 @@ func (o *DbList) getNewConnection(connInfo *DbConnInfo, hash [32]byte) (string, 
 	// Check for failure
 	if err != nil {
 		errMsg := "Error establishing SQL server connection"
-		app.Log.WithError(err).Error(errMsg)
+		app.Logger.Error(errMsg)
 		return errMsg, false
 	}
 
 	// Check if alive
 	if err = newDb.Ping(); err != nil {
 		errMsg := "Just created SQL connection is dead"
-		app.Log.WithError(err).Error(errMsg)
+		app.Logger.Error(errMsg)
 		return errMsg, false
 	}
 
@@ -151,14 +150,16 @@ func (o *DbList) getNewConnection(connInfo *DbConnInfo, hash [32]byte) (string, 
 
 	o.items[newId] = newItem
 
-	app.Log.WithFields(logrus.Fields{
-		"Host":   connInfo.Host,
-		"Port":   connInfo.Port,
-		"dbName": connInfo.DbName,
-		"user":   connInfo.User,
-		"dbType": connInfo.DbType,
-		"Id":     newId,
-	}).Infof("New SQL connection with id %s was added to the pool", newId)
+	app.Logger.Infof("New SQL connection with id %s was added to the pool: "+
+		"Host=%s, Port=%d, dbName=%s, user=%s, dbType=%s, Id=%s",
+		newId,
+		connInfo.Host,
+		connInfo.Port,
+		connInfo.DbName,
+		connInfo.User,
+		connInfo.DbType,
+		newId,
+	)
 
 	return newId, true
 }
@@ -169,7 +170,7 @@ func (o *DbList) Delete(id string) {
 	defer o.mu.Unlock()
 
 	delete(o.items, id)
-	app.Log.Debugf("DB connection with id %s was deleted by query", id)
+	app.Logger.Infof("DB connection with id %s was deleted by query", id)
 
 }
 
@@ -302,8 +303,8 @@ func (o *DbList) RunMaintenance() {
 
 		o.mu.Unlock()
 
-		app.Log.Debugf("Regular task: SQL connection pool size = %d", countConn)
-		app.Log.Debugf("Regular task: %d dead connections removed", countDeadConn)
-		app.Log.Debugf("Regular task: %d lost prepared statements removed", countStmt)
+		app.Logger.Infof("Regular task: SQL connection pool size = %d", countConn)
+		app.Logger.Infof("Regular task: %d dead connections removed", countDeadConn)
+		app.Logger.Infof("Regular task: %d lost prepared statements removed", countStmt)
 	}
 }

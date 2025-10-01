@@ -17,7 +17,7 @@ func GetEnvInt(key string, defaultValue int) int {
 		if intValue, err := strconv.Atoi(value); err == nil {
 			return intValue
 		}
-		Log.Errorf("Invalid integer value for %s, using default value: %d", key, defaultValue)
+		Logger.Errorf("Invalid integer value for %s, using default value: %d", key, defaultValue)
 	}
 	return defaultValue
 }

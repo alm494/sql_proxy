@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"sql-proxy/src/app"
 	"sql-proxy/src/db"
-
-	"github.com/sirupsen/logrus"
 )
 
 func PrepareStatement(w http.ResponseWriter, r *http.Request) {
@@ -108,10 +106,7 @@ func ClosePreparedStatement(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	app.Log.WithFields(logrus.Fields{
-		"connection_id":      connId,
-		"prepared_statement": stmtId,
-	}).Debug("Delete prepared statememt received:")
+	app.Logger.Infof("Delete prepared statememt received: connection_id=%s, prepared_statement=%s", connId, stmtId)
 
 	if ok := db.Handler.ClosePreparedStatement(connId, stmtId); !ok {
 		errorResponce(w, "Forbidden", http.StatusForbidden)
@@ -131,10 +126,7 @@ func parsePrepareStatementHttpHeadersAndBody(w http.ResponseWriter, r *http.Requ
 	defer r.Body.Close()
 
 	sqlQuery := string(body)
-	app.Log.WithFields(logrus.Fields{
-		"sql":           sqlQuery,
-		"connection_id": connId,
-	}).Debug("Prepared statement received:")
+	app.Logger.Infof("Prepared statement received: sql=%s, connection_id=%s", sqlQuery, connId)
 
 	return connId, sqlQuery, true
 
@@ -163,10 +155,7 @@ func parseExecuteStatementHttpHeadersAndBody(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	app.Log.WithFields(logrus.Fields{
-		"connection_id": connId,
-		"statement_id":  stmtId,
-	}).Debug("Execute prepared statement received:")
+	app.Logger.Infof("Execute prepared statement received: connection_id=%s, statement_id=%s", connId, stmtId)
 
 	return connId, stmtId, params, true
 

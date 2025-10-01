@@ -22,7 +22,7 @@ func checkApiVersion(w http.ResponseWriter, r *http.Request) bool {
 	apiVersion := r.Header.Get("API-Version")
 	if apiVersion != app.ApiVersion {
 		message := "Unsupported API version"
-		app.Log.Error(message)
+		app.Logger.Error(message)
 		http.Error(w, message, http.StatusNotImplemented)
 		return false
 	} else {
@@ -33,7 +33,7 @@ func checkApiVersion(w http.ResponseWriter, r *http.Request) bool {
 
 func errorResponce(w http.ResponseWriter, message string, httpStatus int) {
 
-	app.Log.Error(message)
+	app.Logger.Error(message)
 	http.Error(w, message, httpStatus)
 
 }

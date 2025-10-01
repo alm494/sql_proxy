@@ -6,8 +6,6 @@ import (
 
 	"sql-proxy/src/app"
 	"sql-proxy/src/db"
-
-	"github.com/sirupsen/logrus"
 )
 
 func SelectQuery(w http.ResponseWriter, r *http.Request) {
@@ -74,10 +72,7 @@ func parseQueryHttpHeadersAndBody(w http.ResponseWriter, r *http.Request) (strin
 	defer r.Body.Close()
 
 	sqlQuery := string(body)
-	app.Log.WithFields(logrus.Fields{
-		"sql":           sqlQuery,
-		"connection_id": connId,
-	}).Debug("SQL query received:")
+	app.Logger.Infof("SQL query received: sql=%s, connection_id=%s", sqlQuery, connId)
 
 	return connId, sqlQuery, true
 
