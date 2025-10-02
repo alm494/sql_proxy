@@ -20,7 +20,7 @@ Function OpenSQLConnection(ConnectionString) Export
   Path = "/api/v1/connection";
   ...
 ```
-Refer to the full example for the 1C:Enterprise language in the src/doc folder to learn how to use this API.
+Refer to the full example for the 1C:Enterprise language in the /docs folder to learn how to use this API.
 Note that this service is not limited to 1C and can be utilized in other contexts as well.
 
 ## Key features:
@@ -42,7 +42,7 @@ Note that this service is not limited to 1C and can be utilized in other context
 
 Current API version is 1.2. See Swagger OpenAPI 3.0 specification in src/docs/api
 
-![API overview](src/docs/api/swagger.png)
+![API overview](/docs/api/swagger.png)
 
 ## How to compile
 
