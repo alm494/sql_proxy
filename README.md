@@ -40,13 +40,13 @@ Note that this service is not limited to 1C and can be utilized in other context
 
 ## API description
 
-Current API version is 1.2. See Swagger OpenAPI 3.0 specification in src/docs/api
+Current API version is 1.3. See Swagger OpenAPI 3.0 specification in src/docs/api
 
 ![API overview](src/docs/api/swagger.png)
 
 ## How to compile
 
-Current version is 1.3.1. Execute in the command line:
+Current version is 1.4.1. Execute in the command line:
 
 ```
 make prod
