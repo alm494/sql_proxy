@@ -333,6 +333,48 @@ paths:
         "501":
           description: Not implemented
 
+  /blob:
+    post:
+      summary: Execute select queries to retrive a BLOB field
+      description: Use this method to execute any SQL query that wants to read a single BLOB field. Supported types are BYTEA, BLOB, LONGBLOB, MEDIUMBLOB, VARBINARY, IMAGE. Data returned in the response body as a binary.
+      parameters:
+        - in: header
+          name: API-Version
+          schema:
+            type: string
+          description: API version
+          required: true
+          example: 1.2
+        - in: header
+          name: Connection-Id
+          schema:
+            type: string
+          description: SQL connection id as GUID in a plain text, must be obtained by /connection POST method.
+          required: true
+          example: "52f0b434-4eae-4cc6-803c-2d2f604fe16c"
+      requestBody:
+        description: SQL query text
+        required: true
+        content:
+          text/plain:
+            schema:
+              type: string
+              example: SELECT binarydata FROM files WHERE id = 101
+
+      responses:
+        "200":
+          description: OK
+          content: 
+            application/octet-stream:
+              schema:
+                format: binary
+        "400":
+          description: Bad request
+        "403":
+          description: Forbidden
+        "500":
+          description: Internal server error
+          
 components:
   schemas:
     ConnectionProperties:
