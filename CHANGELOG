@@ -1,3 +1,7 @@
+1.4.2:
+
+ - Feature: Added support for writing BLOB data. The API version remains 1.2, as all existing 1.2 features are unchanged.
+
 1.4.1:
 
  - Fix: Added a DEBUG_LOG parameter to prevent SQL queries and GUIDs from being exposed in logs in production environments.
