@@ -64,7 +64,7 @@ func (o *DbList) GetByParams(connInfo *DbConnInfo) (string, bool) {
 		// Search existing connection by hash to reuse
 		if bytes.Equal(dbConn.Hash[:], hash[:]) {
 			guid = key
-			app.Logger.Infof("DB connection with id %s found in the pool", guid)
+			app.Logger.Debugf("DB connection with id %s found in the pool", guid)
 
 			// Perform checks
 			if err = dbConn.DB.Ping(); err == nil {
@@ -78,7 +78,7 @@ func (o *DbList) GetByParams(connInfo *DbConnInfo) (string, bool) {
 				delete(o.items, guid)
 				o.mu.Unlock()
 				o.mu.RLock()
-				app.Logger.Infof("DB connection with id %s is dead and removed from the pool", guid)
+				app.Logger.Debugf("DB connection with id %s is dead and removed from the pool", guid)
 			}
 		}
 	}
@@ -150,7 +150,7 @@ func (o *DbList) getNewConnection(connInfo *DbConnInfo, hash [32]byte) (string, 
 
 	o.items[newId] = newItem
 
-	app.Logger.Infof("New SQL connection with id %s was added to the pool: "+
+	app.Logger.Debugf("New SQL connection with id %s was added to the pool: "+
 		"Host=%s, Port=%d, dbName=%s, user=%s, dbType=%s, Id=%s",
 		newId,
 		connInfo.Host,
@@ -170,7 +170,7 @@ func (o *DbList) Delete(id string) {
 	defer o.mu.Unlock()
 
 	delete(o.items, id)
-	app.Logger.Infof("DB connection with id %s was deleted by query", id)
+	app.Logger.Debugf("DB connection with id %s was deleted by query", id)
 
 }
 

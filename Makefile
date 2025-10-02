@@ -18,6 +18,7 @@ GOAMD64 := v2
 BIND_PORT := 8080
 BIND_ADDR := localhost
 MAX_ROWS := 10000
+DEBUG_LOG := true
 #TLS_CERT := $(BUILD_DIR)/server.crt
 #TLS_KEY := $(BUILD_DIR)/server.key
 
@@ -49,7 +50,7 @@ debug: clean
 # Run
 run: debug
 	@echo "Running $(PROJECT_NAME) in debug mode..."
-	BIND_ADDR=$(BIND_ADDR) BIND_PORT=$(BIND_PORT) MAX_ROWS=$(MAX_ROWS) TLS_CERT=$(TLS_CERT) TLS_KEY=$(TLS_KEY) $(BUILD_DIR)/$(PROJECT_NAME)-debug
+	BIND_ADDR=$(BIND_ADDR) BIND_PORT=$(BIND_PORT) MAX_ROWS=$(MAX_ROWS) TLS_CERT=$(TLS_CERT) TLS_KEY=$(TLS_KEY) DEBUG_LOG=$(DEBUG_LOG) $(BUILD_DIR)/$(PROJECT_NAME)-debug
 
 # Run test
 test:

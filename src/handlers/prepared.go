@@ -106,7 +106,7 @@ func ClosePreparedStatement(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	app.Logger.Infof("Delete prepared statememt received: connection_id=%s, prepared_statement=%s", connId, stmtId)
+	app.Logger.Debugf("Delete prepared statememt received: connection_id=%s, prepared_statement=%s", connId, stmtId)
 
 	if ok := db.Handler.ClosePreparedStatement(connId, stmtId); !ok {
 		errorResponce(w, "Forbidden", http.StatusForbidden)
@@ -126,7 +126,7 @@ func parsePrepareStatementHttpHeadersAndBody(w http.ResponseWriter, r *http.Requ
 	defer r.Body.Close()
 
 	sqlQuery := string(body)
-	app.Logger.Infof("Prepared statement received: sql=%s, connection_id=%s", sqlQuery, connId)
+	app.Logger.Debugf("Prepared statement received: sql=%s, connection_id=%s", sqlQuery, connId)
 
 	return connId, sqlQuery, true
 
@@ -155,7 +155,7 @@ func parseExecuteStatementHttpHeadersAndBody(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	app.Logger.Infof("Execute prepared statement received: connection_id=%s, statement_id=%s", connId, stmtId)
+	app.Logger.Debugf("Execute prepared statement received: connection_id=%s, statement_id=%s", connId, stmtId)
 
 	return connId, stmtId, params, true
 

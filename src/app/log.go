@@ -15,10 +15,12 @@ type LoggerInterface interface {
 	Errorf(format string, args ...interface{})
 	Warn(args ...interface{})
 	Warnf(format string, args ...interface{})
+	Debug(args ...interface{})
+	Debugf(format string, args ...interface{})
 }
 
-// Global logger:
 var Logger LoggerInterface
+var DebugLog bool
 
 // service logger:
 type ServiceLogger struct {
@@ -49,6 +51,18 @@ func (s *ServiceLogger) Warnf(format string, args ...interface{}) {
 	s.Logger.Warningf(format, args...)
 }
 
+func (s *ServiceLogger) Debug(args ...interface{}) {
+	if DebugLog {
+		s.Logger.Info(args...)
+	}
+}
+
+func (s *ServiceLogger) Debugf(format string, args ...interface{}) {
+	if DebugLog {
+		s.Logger.Infof(format, args...)
+	}
+}
+
 // Console logger:
 
 type ConsoleLogger struct {
@@ -77,6 +91,18 @@ func (c *ConsoleLogger) Warn(args ...interface{}) {
 
 func (c *ConsoleLogger) Warnf(format string, args ...interface{}) {
 	c.Logger.Warnf(format, args...)
+}
+
+func (c *ConsoleLogger) Debug(args ...interface{}) {
+	if DebugLog {
+		c.Logger.Info(args...)
+	}
+}
+
+func (c *ConsoleLogger) Debugf(format string, args ...interface{}) {
+	if DebugLog {
+		c.Logger.Infof(format, args...)
+	}
 }
 
 // Create logger variants

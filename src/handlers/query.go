@@ -72,7 +72,7 @@ func parseQueryHttpHeadersAndBody(w http.ResponseWriter, r *http.Request) (strin
 	defer r.Body.Close()
 
 	sqlQuery := string(body)
-	app.Logger.Infof("SQL query received: sql=%s, connection_id=%s", sqlQuery, connId)
+	app.Logger.Debugf("SQL query received: sql=%s, connection_id=%s", sqlQuery, connId)
 
 	return connId, sqlQuery, true
 

@@ -35,6 +35,7 @@ func (p *program) Start(s service.Service) error {
 func (p *program) run() {
 
 	// Application params taken from OS environment
+	app.DebugLog = app.GetEnvBool("DEBUG_LOG", false)
 	bindAddress := app.GetEnvString("BIND_ADDR", "localhost")
 	if bindAddress == "*" {
 		bindAddress = ""
@@ -59,6 +60,8 @@ func (p *program) run() {
 	router.HandleFunc("/api/v1/prepared/query", handlers.PreparedSelect).Methods("POST")
 	router.HandleFunc("/api/v1/prepared/query", handlers.PreparedExecute).Methods("PUT")
 	router.HandleFunc("/api/v1/prepared", handlers.ClosePreparedStatement).Methods("DELETE")
+	router.HandleFunc("/api/v1/blob", handlers.ReadBlob).Methods("POST")
+	router.HandleFunc("/api/v1/blob", handlers.WriteBlob).Methods("PUT")
 	router.HandleFunc("/healthz", handlers.Healthz).Methods("GET")
 	router.HandleFunc("/readyz", handlers.Readyz).Methods("GET")
 	router.HandleFunc("/livez", handlers.Livez).Methods("GET")
