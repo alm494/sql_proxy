@@ -63,7 +63,7 @@ make prod
 Просто запустите бинарник. Все параметры передаются через переменные окружения, см. Makefile для детальной информации и значений настроек по умолчанию:
 
 ```
-BIND_ADDR=localhost BIND_PORT=8081 MAX_ROWS=10000 LOG_LEVEL=3 sql-proxy
+BIND_ADDR=localhost BIND_PORT=8081 MAX_ROWS=10000 sql-proxy
 ```
 
 или установите как службу systemd с помощью скрипта install.sh. Параметры можно изменить прямо в этом скрипте перед установкой, или отредактировать потом файл sql-proxy.service.

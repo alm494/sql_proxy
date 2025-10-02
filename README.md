@@ -59,7 +59,7 @@ make prod
 Just run the binary. Settings may be passed with environment variables, see Makefile for details and default values:
 
 ```
-BIND_ADDR=localhost BIND_PORT=8081 MAX_ROWS=10000 LOG_LEVEL=3 sql-proxy
+BIND_ADDR=localhost BIND_PORT=8081 MAX_ROWS=10000 sql-proxy
 ```
 
 or install it as a systemd service with install.sh script. Parameters may be changed later in sql-proxy.service file.
