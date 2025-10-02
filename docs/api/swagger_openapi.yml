@@ -374,7 +374,52 @@ paths:
           description: Forbidden
         "500":
           description: Internal server error
-          
+
+    put:
+      summary: Write a BLOB field
+      description: "Use this method to write a single BLOB field. Supported types are BYTEA, BLOB, LONGBLOB, MEDIUMBLOB, VARBINARY, IMAGE. Example: UPDATE files SET binarydata=? WHERE id=101"
+      parameters:
+        - in: header
+          name: API-Version
+          schema:
+            type: string
+          description: API version
+          required: true
+          example: 1.2
+        - in: header
+          name: Connection-Id
+          schema:
+            type: string
+          description: SQL connection id as GUID in a plain text, must be obtained by /connection POST method.
+          required: true
+          example: "52f0b434-4eae-4cc6-803c-2d2f604fe16c"
+      requestBody:
+        description: multipart form-data containg both SQL query and binary data
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                sql_query: 
+                  type: string
+                  description: SQL query, INSERT or UPDATE. Use query parameter symbol accordingly to your SQL type (? or $1) in query text for binary field value.
+                  example: 
+                binary_data:
+                  type: string
+                  format: binary
+                  description: binary data
+
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad request
+        "403":
+          description: Forbidden
+        "500":
+          description: Internal server error
+
 components:
   schemas:
     ConnectionProperties:
