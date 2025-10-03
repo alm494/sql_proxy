@@ -14,6 +14,11 @@ else
     echo "User $SERVICE_USER already exists."
 fi
 
+if systemctl is-active --quiet sql-proxy; then
+    echo "Service is running. Stopping..."
+    systemctl stop sql-proxy
+fi
+
 mkdir -p "$SERVICE_DIR"
 mkdir -p "$LOG_DIR"
 chown "$SERVICE_USER:$SERVICE_GROUP" "$SERVICE_DIR"
@@ -50,15 +55,8 @@ RestartSec=10
 WantedBy=multi-user.target
 EOF
 
+echo "Starting sql-proxy service..."
 systemctl daemon-reload
 systemctl enable sql-proxy --now
-
-if systemctl is-active --quiet sql-proxy; then
-    echo "Service is running. Restarting..."
-    systemctl restart sql-proxy
-else
-    echo "Starting sql-proxy service..."
-    systemctl start sql-proxy
-fi
 
 echo "SQL Proxy service installed and running."
