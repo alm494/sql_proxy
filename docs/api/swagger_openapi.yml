@@ -372,6 +372,8 @@ paths:
           description: Bad request
         "403":
           description: Forbidden
+        "413":
+          description: File is too large
         "500":
           description: Internal server error
 
