@@ -36,8 +36,8 @@ Note that this service is not limited to 1C and can be utilized in other context
 * Prepared Statements : supported;
 * BLOB read/write : supported;
 * Flexible Binding : Can bind to localhost or any specified IP address for enhanced security. By default, it is intended to bind to localhost and run alongside legacy software;
-* Security Responsibility : Does not perform SQL query validation and any other security checks. It is the responsibility of DBA to configure appropriate database privileges. Keep in mind ADODB is the old-school engineering and this tool is the simple replacement. All security-related work must be completed first at 
-SQL server — as it always was, long before the era of shiny new toys;
+* Security Responsibility : Does not perform SQL query validation and any other security checks. It is the responsibility of DBA to configure appropriate database privileges. Keep in mind ADODB is the old-school engineering and this tool is the simple and quick replacement. All security-related work must be completed
+first at SQL server — as it always was, long before the era of shiny new toys. Consider to implement ORM model in the future or another secure-driven patterns;
 * Monitoring and Metrics : Provides Prometheus metrics for performance monitoring and observability; 
 
 ## API description

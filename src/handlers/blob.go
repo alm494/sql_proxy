@@ -7,6 +7,8 @@ import (
 	"sql-proxy/src/db"
 )
 
+const maxBlobSize int64 = 32 << 20 // 32 MB, change here if required
+
 func ReadBlob(w http.ResponseWriter, r *http.Request) {
 
 	if ok := checkApiVersion(w, r); !ok {
@@ -31,6 +33,11 @@ func ReadBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if int64(len(data)) > maxBlobSize {
+		errorResponce(w, "Data too large", http.StatusRequestEntityTooLarge)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Write(data)
 
@@ -42,8 +49,8 @@ func WriteBlob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	maxSize := int64(32 << 20) // 32 MB, change here if required
-	connId, sqlQuery, data, ok := parseQueryHttpHeadersAndMultipartBody(r, maxSize)
+	//maxSize := int64(32 << 20) // 32 MB, change here if required
+	connId, sqlQuery, data, ok := parseQueryHttpHeadersAndMultipartBody(r, maxBlobSize)
 	if !ok {
 		errorResponce(w, "Bad request", http.StatusBadRequest)
 		return
