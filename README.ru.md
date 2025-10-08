@@ -47,7 +47,7 @@
 
 ## Описание API
 
-Текущая версия API: 1.2. См. спецификацию Swagger OpenAPI 3.0 в папке src/docs/api
+Текущая версия API: 1.2. См. спецификацию Swagger OpenAPI 3.0 в папке /docs/api
 
 ![API overview](/docs/api/swagger.png)
 

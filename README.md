@@ -42,7 +42,7 @@ first at SQL server — as it always was, long before the era of shiny new toys.
 
 ## API description
 
-Current API version is 1.2. See Swagger OpenAPI 3.0 specification in src/docs/api
+Current API version is 1.2. See Swagger OpenAPI 3.0 specification in /docs/api
 
 ![API overview](/docs/api/swagger.png)
 
