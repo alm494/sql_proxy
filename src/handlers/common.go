@@ -17,13 +17,25 @@ type ResponseEnvelope struct {
 	Rows           []map[string]any `json:"rows"`
 }
 
+type ErrorEnvelope struct {
+	ApiVersion string `json:"api_version"`
+	Error      string `json:"error"`
+	Status     int    `json:"status"`
+}
+
 func checkApiVersion(w http.ResponseWriter, r *http.Request) bool {
 
 	apiVersion := r.Header.Get("API-Version")
 	if apiVersion != app.ApiVersion {
 		message := "Unsupported API version"
 		app.Logger.Error(message)
-		http.Error(w, message, http.StatusNotImplemented)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotImplemented)
+		json.NewEncoder(w).Encode(ErrorEnvelope{
+			ApiVersion: app.ApiVersion,
+			Error:      message,
+			Status:     http.StatusNotImplemented,
+		})
 		return false
 	} else {
 		return true
@@ -34,7 +46,14 @@ func checkApiVersion(w http.ResponseWriter, r *http.Request) bool {
 func errorResponce(w http.ResponseWriter, message string, httpStatus int) {
 
 	app.Logger.Error(message)
-	http.Error(w, message, httpStatus)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(httpStatus)
+	errResp := ErrorEnvelope{
+		ApiVersion: app.ApiVersion,
+		Error:      http.StatusText(httpStatus),
+		Status:     httpStatus,
+	}
+	json.NewEncoder(w).Encode(errResp)
 
 }
 

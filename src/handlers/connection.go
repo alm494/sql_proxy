@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"sql-proxy/src/db"
 )
@@ -19,9 +20,17 @@ func CreateConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if connGuid, ok := db.Handler.GetByParams(&dbConnInfo); !ok {
-		errorResponce(w, "Failed to get SQL connection", http.StatusInternalServerError)
-	} else if _, err := w.Write([]byte(connGuid)); err != nil {
+	connGuid, err := db.Handler.GetByParams(&dbConnInfo)
+	if err != nil {
+		if errors.Is(err, db.ErrConnectionLimit) {
+			errorResponce(w, err.Error(), http.StatusTooManyRequests)
+		} else {
+			errorResponce(w, err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+
+	if _, err = w.Write([]byte(connGuid)); err != nil {
 		errorResponce(w, err.Error(), http.StatusInternalServerError)
 	}
 

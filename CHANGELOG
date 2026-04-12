@@ -1,3 +1,11 @@
+1.4.4:
+
+ - Security: Error responses now return safe HTTP status text instead of detailed database error messages to prevent information leakage
+ - Security: Added MAX_CONNECTIONS environment variable to limit concurrent database connections and prevent resource exhaustion (DoS protection)
+ - Fix: Fixed race condition in GetById() when upgrading from read lock to write lock
+ - Fix: Fixed memory leak in RunMaintenance() where prepared statement deletions were not persisted to the connection pool
+ - Feature: Error responses now use consistent JSON format with api_version, error, and status fields
+
 1.4.3:
 
  - Fix: minor bugfixes

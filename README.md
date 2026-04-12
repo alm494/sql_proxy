@@ -31,6 +31,7 @@ Note that this service is not limited to 1C and can be utilized in other context
 * Secure Credential Management : Does not store SQL credentials, ensuring sensitive information remains protected;
 * Secure Communication : Supports HTTPS for secure data transmission;
 * Efficient Connection Pooling : Utilizes a shared, reusable SQL connection pool with automated maintenance tasks to remove stale or dead connections;
+* Connection Limiting : Configurable maximum number of concurrent database connections to prevent resource exhaustion;
 * Command Support : Currently supports all SQL commands with no limitation. The SELECT command returns query results as a flexible JSON-formatted recordset;
 * Result Limitation : Allows configuration to limit the number of rows returned by SELECT statements;
 * Prepared Statements : supported;
@@ -48,7 +49,7 @@ Current API version is 1.2. See Swagger OpenAPI 3.0 specification in /docs/api
 
 ## How to compile
 
-Current version is 1.4.3. Execute in the command line:
+Current version is 1.4.4. Execute in the command line:
 
 ```
 make prod
@@ -59,7 +60,7 @@ make prod
 Just run the binary. Settings may be passed with environment variables, see Makefile for details and default values:
 
 ```
-BIND_ADDR=localhost BIND_PORT=8081 MAX_ROWS=10000 sql-proxy
+BIND_ADDR=localhost BIND_PORT=8081 MAX_ROWS=10000 MAX_CONNECTIONS=100 sql-proxy
 ```
 
 or install it as a systemd service with install.sh script. Parameters may be changed later in sql-proxy.service file.

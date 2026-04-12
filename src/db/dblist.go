@@ -9,10 +9,10 @@ import (
 
 	"time"
 
-	"slices"
-
 	"github.com/google/uuid"
 )
+
+var ErrConnectionLimit = fmt.Errorf("connection pool limit reached")
 
 // Init map
 func (o *DbList) Init() {
@@ -22,23 +22,33 @@ func (o *DbList) Init() {
 
 }
 
+// Returns current pool size
+func (o *DbList) Size() int {
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+	return len(o.items)
+}
+
 // Gets SQL server connection by GUID
 func (o *DbList) GetById(id string, updateTimestamp bool) (*sql.DB, bool) {
 
-	o.mu.RLock()
+	if updateTimestamp {
+		o.mu.Lock()
+		defer o.mu.Unlock()
 
-	if dbConn, ok := o.items[id]; ok {
-		if updateTimestamp {
-			o.mu.RUnlock()
-			o.mu.Lock()
+		if dbConn, ok := o.items[id]; ok {
 			dbConn.Timestamp = time.Now()
 			o.items[id] = dbConn
-			o.mu.Unlock()
+			return dbConn.DB, true
 		}
-		return dbConn.DB, true
-	}
+	} else {
+		o.mu.RLock()
+		defer o.mu.RUnlock()
 
-	o.mu.RUnlock()
+		if dbConn, ok := o.items[id]; ok {
+			return dbConn.DB, true
+		}
+	}
 
 	app.Logger.Errorf("SQL connection with guid='%s' not found", id)
 	return nil, false
@@ -47,12 +57,11 @@ func (o *DbList) GetById(id string, updateTimestamp bool) (*sql.DB, bool) {
 
 // Gets the new SQL server connection with parameters given.
 // First lookups in pool, if fails opens new one and returns GUID value
-func (o *DbList) GetByParams(connInfo *DbConnInfo) (string, bool) {
+func (o *DbList) GetByParams(connInfo *DbConnInfo) (string, error) {
 	hash, err := connInfo.GetHash()
 	if err != nil {
-		errMsg := "Hash calculation failed"
-		app.Logger.Error(errMsg)
-		return errMsg, false
+		app.Logger.Error("Hash calculation failed")
+		return "", fmt.Errorf("hash calculation failed")
 	}
 
 	guid := ""
@@ -70,7 +79,7 @@ func (o *DbList) GetByParams(connInfo *DbConnInfo) (string, bool) {
 			if err = dbConn.DB.Ping(); err == nil {
 				o.mu.RUnlock()
 				// Everything is ok, return guid
-				return guid, true
+				return guid, nil
 			} else {
 				// Bad connection, need to clean
 				o.mu.RUnlock()
@@ -90,10 +99,16 @@ func (o *DbList) GetByParams(connInfo *DbConnInfo) (string, bool) {
 }
 
 // Creates the new SQL connection regarding concurrency
-func (o *DbList) getNewConnection(connInfo *DbConnInfo, hash [32]byte) (string, bool) {
+func (o *DbList) getNewConnection(connInfo *DbConnInfo, hash [32]byte) (string, error) {
 
 	o.mu.Lock()
 	defer o.mu.Unlock()
+
+	// Check connection pool limit
+	if len(o.items) >= MaxConnections {
+		app.Logger.Errorf("Connection pool limit reached: %d", MaxConnections)
+		return "", ErrConnectionLimit
+	}
 
 	// Prepare DSN string
 	var dsn string
@@ -115,9 +130,9 @@ func (o *DbList) getNewConnection(connInfo *DbConnInfo, hash [32]byte) (string, 
 		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s",
 			connInfo.User, encodedPassword, connInfo.Host, connInfo.Port, connInfo.DbName)
 	default:
-		errMsg := fmt.Sprintf("No suitable driver implemented for server type '%s'", connInfo.DbType)
+		errMsg := fmt.Sprintf("unsupported database type '%s'", connInfo.DbType)
 		app.Logger.Error(errMsg)
-		return errMsg, false
+		return "", fmt.Errorf("%s", errMsg)
 	}
 
 	// Open new SQL server connection
@@ -128,16 +143,14 @@ func (o *DbList) getNewConnection(connInfo *DbConnInfo, hash [32]byte) (string, 
 
 	// Check for failure
 	if err != nil {
-		errMsg := "Error establishing SQL server connection"
-		app.Logger.Error(errMsg)
-		return errMsg, false
+		app.Logger.Errorf("Error establishing SQL server connection: %v", err)
+		return "", fmt.Errorf("error establishing SQL server connection")
 	}
 
 	// Check if alive
 	if err = newDb.Ping(); err != nil {
-		errMsg := "Just created SQL connection is dead"
-		app.Logger.Error(errMsg)
-		return errMsg, false
+		app.Logger.Errorf("Just created SQL connection is dead: %v", err)
+		return "", fmt.Errorf("error establishing SQL server connection")
 	}
 
 	// Insert into pool
@@ -161,7 +174,7 @@ func (o *DbList) getNewConnection(connInfo *DbConnInfo, hash [32]byte) (string, 
 		newId,
 	)
 
-	return newId, true
+	return newId, nil
 }
 
 // Deletes SQL server connection
@@ -230,15 +243,17 @@ func (o *DbList) ClosePreparedStatement(connId, stmtId string) bool {
 	if !ok {
 		return false
 	}
-	for i := range dbConn.Stmt {
-		if dbConn.Stmt[i].Id == stmtId {
-			dbConn.Stmt[i].Stmt.Close()
-			dbConn.Stmt = slices.Delete(dbConn.Stmt, i, i+1)
-			break
+
+	for i, stmt := range dbConn.Stmt {
+		if stmt.Id == stmtId {
+			stmt.Stmt.Close()
+			dbConn.Stmt = append(dbConn.Stmt[:i], dbConn.Stmt[i+1:]...)
+			o.items[connId] = dbConn
+			return true
 		}
 	}
 
-	return true
+	return false
 
 }
 
@@ -258,40 +273,37 @@ func (o *DbList) RunMaintenance() {
 		o.mu.Lock()
 
 		for key, dbConn := range o.items {
-
-			var lostStmts []string
 			countConn++
 
+			isDead := false
 			if err := dbConn.DB.Ping(); err != nil {
 				// dead connection
 				deadItems = append(deadItems, key)
 				countDeadConn++
+				isDead = true
 			} else if time.Since(dbConn.Timestamp).Abs().Minutes() > 20 {
 				// connection not used for last 20 minutes
 				deadItems = append(deadItems, key)
 				countDeadConn++
+				isDead = true
 			}
 
-			// check prepared statements
+			// Close and remove expired prepared statements
+			activeStmts := make([]DbStmt, 0, len(dbConn.Stmt))
 			for _, stmt := range dbConn.Stmt {
-				// prepared statements not used last 20 minutes
 				if time.Since(stmt.Timestamp).Abs().Minutes() > 20 {
-					lostStmts = append(lostStmts, stmt.Id)
+					stmt.Stmt.Close()
 					countStmt++
+				} else {
+					activeStmts = append(activeStmts, stmt)
 				}
 			}
+			dbConn.Stmt = activeStmts
 
-			// delete lost prepared statements
-			for _, lost := range lostStmts {
-				for i := range dbConn.Stmt {
-					if dbConn.Stmt[i].Id == lost {
-						dbConn.Stmt[i].Stmt.Close()
-						dbConn.Stmt = slices.Delete(dbConn.Stmt, i, i+1)
-						break
-					}
-				}
+			// Update connection in pool (without timestamp change)
+			if !isDead {
+				o.items[key] = dbConn
 			}
-
 		}
 
 		// remove dead connections

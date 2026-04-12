@@ -1,5 +1,5 @@
 PROJECT_NAME := sql-proxy
-BUILD_VERSION := 1.4.3
+BUILD_VERSION := 1.4.4
 BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 BUILD_DIR := build
 GO_FILES := src/main.go
@@ -18,6 +18,8 @@ GOAMD64 := v2
 BIND_PORT := 8080
 BIND_ADDR := localhost
 MAX_ROWS := 10000
+MAX_CONNECTIONS := 100
+
 DEBUG_LOG := true
 #TLS_CERT := $(BUILD_DIR)/server.crt
 #TLS_KEY := $(BUILD_DIR)/server.key
@@ -50,7 +52,7 @@ debug: clean
 # Run
 run: debug
 	@echo "Running $(PROJECT_NAME) in debug mode..."
-	BIND_ADDR=$(BIND_ADDR) BIND_PORT=$(BIND_PORT) MAX_ROWS=$(MAX_ROWS) TLS_CERT=$(TLS_CERT) TLS_KEY=$(TLS_KEY) DEBUG_LOG=$(DEBUG_LOG) $(BUILD_DIR)/$(PROJECT_NAME)-debug
+	BIND_ADDR=$(BIND_ADDR) BIND_PORT=$(BIND_PORT) MAX_ROWS=$(MAX_ROWS) MAX_CONNECTIONS=$(MAX_CONNECTIONS) TLS_CERT=$(TLS_CERT) TLS_KEY=$(TLS_KEY) DEBUG_LOG=$(DEBUG_LOG) $(BUILD_DIR)/$(PROJECT_NAME)-debug
 
 # Run test
 test:

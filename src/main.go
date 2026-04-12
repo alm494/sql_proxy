@@ -42,6 +42,8 @@ func (p *program) run() {
 	}
 	bindPort := app.GetEnvInt("BIND_PORT", 8080)
 	db.MaxRows = uint32(app.GetEnvInt("MAX_ROWS", 10000))
+	db.MaxConnections = app.GetEnvInt("MAX_CONNECTIONS", 100)
+
 	tlsCert := app.GetEnvString("TLS_CERT", "")
 	tlsKey := app.GetEnvString("TLS_KEY", "")
 
@@ -67,10 +69,11 @@ func (p *program) run() {
 	router.HandleFunc("/livez", handlers.Livez).Methods("GET")
 	router.Handle("/metrics", promhttp.Handler())
 
-	app.Logger.Info("(c) 2025 Almaz Sharipov, MIT license, https://github.com/alm494/sql_proxy  ")
+	app.Logger.Info("(c) 2025-2026 Almaz Sharipov, MIT license, https://github.com/alm494/sql_proxy  ")
 	app.Logger.Infof("build_version=%s, build_time=%s", app.BuildVersion, app.BuildTime)
 	app.Logger.Infof("Server started with the following parameters: "+
-		"bind_port=%d, bind_address=%s, tls_cert=%s, tls_key=%s", bindPort, bindAddress, tlsCert, tlsKey)
+		"bind_port=%d, bind_address=%s, max_connections=%d, max_rows=%d, tls_cert=%s, tls_key=%s",
+		bindPort, bindAddress, db.MaxConnections, db.MaxRows, tlsCert, tlsKey)
 
 	addr := fmt.Sprintf("%s:%d", bindAddress, bindPort)
 
