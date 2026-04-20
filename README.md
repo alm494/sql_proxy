@@ -32,13 +32,14 @@ Note that this service is not limited to 1C and can be utilized in other context
 * Secure Communication : Supports HTTPS for secure data transmission;
 * Efficient Connection Pooling : Utilizes a shared, reusable SQL connection pool with automated maintenance tasks to remove stale or dead connections;
 * Connection Limiting : Configurable maximum number of concurrent database connections to prevent resource exhaustion;
-* Command Support : Currently supports all SQL commands with no limitation. The SELECT command returns query results as a flexible JSON-formatted recordset;
+* Command Support : Currently supports all SQL commands with no limitation (I am familiar with SQL injection. Read below about security patterns). The SELECT command returns query results as a flexible JSON-formatted recordset;
 * Result Limitation : Allows configuration to limit the number of rows returned by SELECT statements;
 * Prepared Statements : supported;
 * BLOB read/write : supported;
 * Flexible Binding : Can bind to localhost or any specified IP address for enhanced security. By default, it is intended to bind to localhost and run alongside legacy software;
-* Security Responsibility : Does not perform SQL query validation and any other security checks. It is the responsibility of DBA to configure appropriate database privileges. Keep in mind ADODB is the old-school engineering and this tool is the simple and quick replacement. All security-related work must be completed
-first at SQL server — as it always was, long before the era of shiny new toys. Consider to implement ORM model in the future or another secure-driven patterns;
+* Security : Does not perform SQL query validation and any other security checks (!). It is the responsibility of DBA to configure appropriate database privileges. Keep in mind ADODB is the old-school engineering and this tool is the simple and quick replacement. All security-related work must be completed
+first at SQL server — as it always was, long before the era of shiny new toys. Never use admin accounts with this service! Does not expose it to the untrusted network!
+Consider to implement ORM model in the future or another secure-driven patterns;
 * Monitoring and Metrics : Provides Prometheus metrics for performance monitoring and observability; 
 
 ## API description
