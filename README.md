@@ -32,7 +32,7 @@ Note that this service is not limited to 1C and can be utilized in other context
 * Secure Communication : Supports HTTPS for secure data transmission;
 * Efficient Connection Pooling : Utilizes a shared, reusable SQL connection pool with automated maintenance tasks to remove stale or dead connections;
 * Connection Limiting : Configurable maximum number of concurrent database connections to prevent resource exhaustion;
-* Command Support : Currently supports all SQL commands with no limitation (yes, I am familiar with SQL injection. Read below about security patterns). The SELECT command returns query results as a flexible JSON-formatted recordset;
+* Command Support : Currently supports all SQL commands with no limitation (read below security tips). The SELECT command returns query results as a flexible JSON-formatted recordset;
 * Result Limitation : Allows configuration to limit the number of rows returned by SELECT statements;
 * Prepared Statements : supported;
 * BLOB read/write : supported;
