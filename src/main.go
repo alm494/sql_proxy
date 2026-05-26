@@ -19,38 +19,32 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-var svcLogger service.Logger
+const shutdownTimeout = 15 * time.Second
 
 type program struct {
-	exit chan struct{}
+	httpServer *http.Server
+	exit       chan struct{}
 }
 
 func (p *program) Start(s service.Service) error {
-	app.Logger.Info("Starting sql-proxy service...")
-	p.exit = make(chan struct{})
-	go p.run()
-	return nil
-}
-
-func (p *program) run() {
-
-	// Application params taken from OS environment
-	app.DebugLog = app.GetEnvBool("DEBUG_LOG", false)
-	bindAddress := app.GetEnvString("BIND_ADDR", "localhost")
-	if bindAddress == "*" {
-		bindAddress = ""
+	if !service.Interactive() {
+		svcLogger, loggerErr := s.Logger(nil)
+		if loggerErr != nil {
+			return fmt.Errorf("failed to get service logger: %w", loggerErr)
+		}
+		app.InitLogger(app.NewServiceLogger(svcLogger))
+	} else {
+		app.InitLogger(app.NewConsoleLogger())
 	}
-	bindPort := app.GetEnvInt("BIND_PORT", 8080)
-	db.MaxRows = uint32(app.GetEnvInt("MAX_ROWS", 10000))
-	db.MaxConnections = app.GetEnvInt("MAX_CONNECTIONS", 100)
 
-	tlsCert := app.GetEnvString("TLS_CERT", "")
-	tlsKey := app.GetEnvString("TLS_KEY", "")
+	app.Logger.Info("Starting sql-proxy service...")
 
-	// Init connections handler map
+	cfg, err := loadConfig()
+	if err != nil {
+		return fmt.Errorf("configuration error: %w", err)
+	}
+
 	db.Handler.Init()
-
-	// Scheduled maintenance task
 	go db.Handler.RunMaintenance()
 
 	router := mux.NewRouter()
@@ -69,56 +63,103 @@ func (p *program) run() {
 	router.HandleFunc("/livez", handlers.Livez).Methods("GET")
 	router.Handle("/metrics", promhttp.Handler())
 
-	app.Logger.Info("(c) 2025-2026 Almaz Sharipov, MIT license, https://github.com/alm494/sql_proxy  ")
-	app.Logger.Infof("build_version=%s, build_time=%s", app.BuildVersion, app.BuildTime)
-	app.Logger.Infof("Server started with the following parameters: "+
-		"bind_port=%d, bind_address=%s, max_connections=%d, max_rows=%d, tls_cert=%s, tls_key=%s",
-		bindPort, bindAddress, db.MaxConnections, db.MaxRows, tlsCert, tlsKey)
-
-	addr := fmt.Sprintf("%s:%d", bindAddress, bindPort)
-
-	srv := &http.Server{
+	addr := fmt.Sprintf("%s:%d", cfg.BindAddress, cfg.BindPort)
+	p.httpServer = &http.Server{
 		Addr:    addr,
 		Handler: router,
 	}
+	p.exit = make(chan struct{})
+
+	tlsEnabled := cfg.TLSCert != "" && cfg.TLSKey != ""
+	app.Logger.Infof("(c) 2025-2026 Almaz Sharipov, MIT license, https://github.com/alm494/sql_proxy")
+	app.Logger.Infof("build_version=%s, build_time=%s", app.BuildVersion, app.BuildTime)
+	app.Logger.Infof("Server starting: bind=%s, max_conn=%d, max_rows=%d, tls=%v",
+		addr, db.MaxConnections, db.MaxRows, tlsEnabled)
 
 	go func() {
-		var err error
-		if len(tlsCert) > 0 && len(tlsKey) > 0 {
-			err = srv.ListenAndServeTLS(tlsCert, tlsKey)
+		var listenErr error
+		if tlsEnabled {
+			listenErr = p.httpServer.ListenAndServeTLS(cfg.TLSCert, cfg.TLSKey)
 		} else {
-			err = srv.ListenAndServe()
+			listenErr = p.httpServer.ListenAndServe()
 		}
-		if err != nil && err != http.ErrServerClosed {
-			app.Logger.Errorf("Fatal error occurred, service stopped: %v", err)
+
+		if listenErr != nil && listenErr != http.ErrServerClosed {
+			app.Logger.Errorf("HTTP server fatal error: %v", listenErr)
+			close(p.exit)
 		}
 	}()
 
-	// Wait for exit signal
-	<-p.exit
-
-	// Shutdown server gracefully
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	if err := srv.Shutdown(ctx); err != nil {
-		app.Logger.Errorf("Server shutdown failed: %v", err)
-	} else {
-		app.Logger.Info("Server exited properly")
-	}
+	return nil
 }
 
 func (p *program) Stop(s service.Service) error {
 	app.Logger.Info("Stopping sql-proxy service...")
-	close(p.exit)
+
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+
+	if err := p.httpServer.Shutdown(ctx); err != nil {
+		app.Logger.Errorf("Server shutdown error: %v", err)
+		return err
+	}
+
+	select {
+	case <-p.exit:
+		// already closed
+	default:
+		close(p.exit)
+	}
+
+	app.Logger.Info("Service stopped gracefully")
 	return nil
+}
+
+type config struct {
+	BindAddress string
+	BindPort    int
+	TLSCert     string
+	TLSKey      string
+}
+
+func loadConfig() (*config, error) {
+	app.DebugLog = app.GetEnvBool("DEBUG_LOG", false)
+
+	bindAddress := app.GetEnvString("BIND_ADDR", "localhost")
+	if bindAddress == "*" {
+		bindAddress = ""
+	}
+
+	bindPort := app.GetEnvInt("BIND_PORT", 8080)
+	if bindPort < 1 || bindPort > 65535 {
+		return nil, fmt.Errorf("invalid BIND_PORT: %d", bindPort)
+	}
+
+	db.MaxRows = uint32(app.GetEnvInt("MAX_ROWS", 10000))
+	db.MaxConnections = app.GetEnvInt("MAX_CONNECTIONS", 100)
+
+	tlsCert := app.GetEnvString("TLS_CERT", "")
+	tlsKey := app.GetEnvString("TLS_KEY", "")
+
+	if (tlsCert != "" && tlsKey == "") || (tlsCert == "" && tlsKey != "") {
+		return nil, fmt.Errorf("TLS_CERT and TLS_KEY must be both set or both empty")
+	}
+
+	return &config{
+		BindAddress: bindAddress,
+		BindPort:    bindPort,
+		TLSCert:     tlsCert,
+		TLSKey:      tlsKey,
+	}, nil
 }
 
 func main() {
 	svcConfig := &service.Config{
-		Name:        "sql-proxy",
-		DisplayName: "SQL Proxy Service",
-		Description: "A lightweight REST service designed to replace ADODB calls in legacy software systems that support web requests",
-		Arguments:   []string{},
+		Name:         "sql-proxy",
+		DisplayName:  "SQL Proxy Service",
+		Description:  "A lightweight REST service designed to replace ADODB calls in legacy software systems",
+		Arguments:    []string{},
+		Dependencies: []string{"network.target"},
 	}
 
 	prg := &program{}
@@ -127,38 +168,31 @@ func main() {
 		log.Fatal(err)
 	}
 
-	svcLogger, err = s.Logger(nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	if len(os.Args) > 1 {
-		// Handle service commands: install, start, stop, uninstall
 		err := service.Control(s, os.Args[1])
 		if err != nil {
-			log.Fatal(err)
+			log.Fatalf("Service control error: %v", err)
 		}
 		return
 	}
 
-	// Run as a regular app
 	if !service.Interactive() {
-		app.InitLogger(app.NewServiceLogger(svcLogger))
-		err = s.Run()
-		if err != nil {
-			svcLogger.Error(err)
+		if err := s.Run(); err != nil {
+			log.Fatalf("Service run error: %v", err)
 		}
 	} else {
-		// Run in console mode
-		app.InitLogger(app.NewConsoleLogger())
 		fmt.Println("Running in console mode...")
-		prg.Start(nil)
+		if err := prg.Start(nil); err != nil {
+			log.Fatalf("Failed to start in console mode: %v", err)
+		}
 
-		// Wait for interrupt signal
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 		<-sigChan
-		fmt.Println("Received interrupt signal, shutting down...")
-		prg.Stop(nil)
+
+		fmt.Println("\nReceived interrupt signal, shutting down...")
+		if err := prg.Stop(nil); err != nil {
+			log.Printf("Shutdown error: %v", err)
+		}
 	}
 }

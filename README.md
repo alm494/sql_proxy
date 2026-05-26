@@ -50,7 +50,7 @@ Current API version is 1.2. See Swagger OpenAPI 3.0 specification in /docs/api
 
 ## How to compile
 
-Current version is 1.4.4. Execute in the command line:
+Current version is 1.4.5. Execute in the command line:
 
 ```
 make prod

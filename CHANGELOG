@@ -1,3 +1,7 @@
+1.4.5:
+make
+ - Fix: systemd support improved
+
 1.4.4:
 
  - Security: Error responses now return safe HTTP status text instead of detailed database error messages to prevent information leakage
