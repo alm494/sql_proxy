@@ -6,29 +6,31 @@ import (
 	"time"
 )
 
-// Class model to keep open SQL connections in the pool
-// with concurrent read/write access
+// The pool itself: open DB connections plus their prepared statements, guarded by an RWMutex.
+// Hot paths take the read lock only — don't let that change
 type DbList struct {
-	items map[string]DbConn
-	mu    sync.RWMutex
+	items  map[string]*DbConn
+	byHash map[[32]byte]string
+	mu     sync.RWMutex
 }
 
-// Keeps SQL Db connection information
+// One pooled connection together with its prepared statements.
+// Timestamp is touched atomically, everything else goes through our write lock
 type DbConn struct {
-	Hash      [32]byte  // Hash, as sql.DB does not store credentials
-	DB        *sql.DB   // SQL server connection pool (provided by the driver)
-	Timestamp time.Time // Last use
-	Stmt      []DbStmt  // Prepared SQL statements
+	Hash      [32]byte
+	DB        *sql.DB
+	Timestamp int64
+	Stmt      []DbStmt
 }
 
-// Keeps SQL prepared statement information
+// A prepared statement plus its last-use time — the maintenance janitor watches this closely
 type DbStmt struct {
 	Id        string
 	Stmt      *sql.Stmt
-	Timestamp time.Time // Last use
+	Timestamp time.Time
 }
 
-// Keeps SQL connection string information
+// Connection parameters the API client sends us — we turn them into a DSN and never expose them again
 type DbConnInfo struct {
 	DbType   string `json:"db_type"`
 	Host     string `json:"host"`

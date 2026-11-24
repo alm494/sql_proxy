@@ -37,6 +37,8 @@ After=network.target
 Environment="BIND_ADDR=127.0.0.1"
 Environment="BIND_PORT=8080"
 Environment="MAX_ROWS=10000"
+Environment="MAX_CONNECTIONS=100"
+Environment="MAX_POOL_CONNS=32"
 #Environment="DEBUG_LOG=true"
 #Environment="TLS_CERT=/etc/ssl/certs/cert.pem"
 #Environment="TLS_KEY=/etc/ssl/private/key.pem"

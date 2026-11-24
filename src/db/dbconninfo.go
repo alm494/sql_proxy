@@ -6,6 +6,8 @@ import (
 	"encoding/gob"
 )
 
+// Compute a stable fingerprint of these connection parameters.
+// Same params → same backend pool, no duplicates — that's the whole point
 func (o DbConnInfo) GetHash() ([32]byte, error) {
 	var buf bytes.Buffer
 	var hash [32]byte

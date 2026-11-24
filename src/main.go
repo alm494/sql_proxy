@@ -19,13 +19,16 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+// Graceful shutdown deadline — how long we're willing to wait for in-flight requests before giving up
 const shutdownTimeout = 15 * time.Second
 
+// What the service manager calls when it wants us started or stopped
 type program struct {
 	httpServer *http.Server
 	exit       chan struct{}
 }
 
+// Wire everything up: logger, config, connection pool, routes — then start serving. Order matters here
 func (p *program) Start(s service.Service) error {
 	if !service.Interactive() {
 		svcLogger, loggerErr := s.Logger(nil)
@@ -73,8 +76,8 @@ func (p *program) Start(s service.Service) error {
 	tlsEnabled := cfg.TLSCert != "" && cfg.TLSKey != ""
 	app.Logger.Infof("(c) 2025-2026 Almaz Sharipov, MIT license, https://github.com/alm494/sql_proxy")
 	app.Logger.Infof("build_version=%s, build_time=%s", app.BuildVersion, app.BuildTime)
-	app.Logger.Infof("Server starting: bind=%s, max_conn=%d, max_rows=%d, tls=%v",
-		addr, db.MaxConnections, db.MaxRows, tlsEnabled)
+	app.Logger.Infof("Server starting: bind=%s, max_conn=%d, pool_conns=%d, max_rows=%d, tls=%v",
+		addr, db.MaxConnections, db.MaxPoolConns, db.MaxRows, tlsEnabled)
 
 	go func() {
 		var listenErr error
@@ -93,6 +96,7 @@ func (p *program) Start(s service.Service) error {
 	return nil
 }
 
+// Graceful stop. In-flight requests get shutdownTimeout to finish their business, then we close the door
 func (p *program) Stop(s service.Service) error {
 	app.Logger.Info("Stopping sql-proxy service...")
 
@@ -106,7 +110,7 @@ func (p *program) Stop(s service.Service) error {
 
 	select {
 	case <-p.exit:
-		// already closed
+
 	default:
 		close(p.exit)
 	}
@@ -115,6 +119,7 @@ func (p *program) Stop(s service.Service) error {
 	return nil
 }
 
+// What we read out of the environment, with our defaults filled in
 type config struct {
 	BindAddress string
 	BindPort    int
@@ -122,6 +127,7 @@ type config struct {
 	TLSKey      string
 }
 
+// Pull settings from env vars and refuse to start if they're obviously broken. Defaults are sane, trust me
 func loadConfig() (*config, error) {
 	app.DebugLog = app.GetEnvBool("DEBUG_LOG", false)
 
@@ -137,6 +143,7 @@ func loadConfig() (*config, error) {
 
 	db.MaxRows = uint32(app.GetEnvInt("MAX_ROWS", 10000))
 	db.MaxConnections = app.GetEnvInt("MAX_CONNECTIONS", 100)
+	db.MaxPoolConns = app.GetEnvInt("MAX_POOL_CONNS", 32)
 
 	tlsCert := app.GetEnvString("TLS_CERT", "")
 	tlsKey := app.GetEnvString("TLS_KEY", "")
@@ -153,6 +160,7 @@ func loadConfig() (*config, error) {
 	}, nil
 }
 
+// Entry point. Works both under systemd and plain console mode depending on the situation
 func main() {
 	svcConfig := &service.Config{
 		Name:         "sql-proxy",

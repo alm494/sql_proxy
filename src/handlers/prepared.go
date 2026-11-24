@@ -8,6 +8,7 @@ import (
 	"sql-proxy/src/db"
 )
 
+// Prepare a query on our connection and stash it for repeated use — we hand back its id, keep it safe
 func PrepareStatement(w http.ResponseWriter, r *http.Request) {
 
 	if ok := checkApiVersion(w, r); !ok {
@@ -43,6 +44,7 @@ func PrepareStatement(w http.ResponseWriter, r *http.Request) {
 
 }
 
+// Run a stored prepared SELECT with parameters and send the rows back as our usual table
 func PreparedSelect(w http.ResponseWriter, r *http.Request) {
 
 	if ok := checkApiVersion(w, r); !ok {
@@ -66,10 +68,11 @@ func PreparedSelect(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	tableResponce(w, rows)
+	tableResponce(w, connId, rows)
 
 }
 
+// Same idea as above but for INSERTs and UPDATEs — no result set to show off here
 func PreparedExecute(w http.ResponseWriter, r *http.Request) {
 
 	if ok := checkApiVersion(w, r); !ok {
@@ -84,6 +87,7 @@ func PreparedExecute(w http.ResponseWriter, r *http.Request) {
 	dbStmt, ok := db.Handler.GetPreparedStatement(connId, stmtId)
 	if !ok {
 		errorResponce(w, "Prepared statement not found", http.StatusForbidden)
+		return
 	}
 	_, err := dbStmt.Exec(params...)
 	if err != nil {
@@ -92,6 +96,7 @@ func PreparedExecute(w http.ResponseWriter, r *http.Request) {
 
 }
 
+// Release a stored prepared statement by its ids — both headers required, no exceptions
 func ClosePreparedStatement(w http.ResponseWriter, r *http.Request) {
 
 	if ok := checkApiVersion(w, r); !ok {
@@ -114,6 +119,7 @@ func ClosePreparedStatement(w http.ResponseWriter, r *http.Request) {
 
 }
 
+// Read the Connection-Id header plus raw SQL from the request body. Anything missing means bad day for you
 func parsePrepareStatementHttpHeadersAndBody(w http.ResponseWriter, r *http.Request) (string, string, bool) {
 
 	connId := r.Header.Get("Connection-Id")
@@ -132,6 +138,7 @@ func parsePrepareStatementHttpHeadersAndBody(w http.ResponseWriter, r *http.Requ
 
 }
 
+// Both ids in the headers, and a JSON array of parameters in the body ("null" counts as none at all)
 func parseExecuteStatementHttpHeadersAndBody(w http.ResponseWriter, r *http.Request) (string, string, []any, bool) {
 
 	connId := r.Header.Get("Connection-Id")

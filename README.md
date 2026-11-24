@@ -50,7 +50,7 @@ Current API version is 1.2. See Swagger OpenAPI 3.0 specification in /docs/api
 
 ## How to compile
 
-Current version is 1.4.5. Execute in the command line:
+Current version is 1.5.0. Execute in the command line:
 
 ```
 make prod
@@ -61,7 +61,7 @@ make prod
 Just run the binary. Settings may be passed with environment variables, see Makefile for details and default values:
 
 ```
-BIND_ADDR=localhost BIND_PORT=8081 MAX_ROWS=10000 MAX_CONNECTIONS=100 sql-proxy
+BIND_ADDR=localhost BIND_PORT=8081 MAX_ROWS=10000 MAX_CONNECTIONS=100 MAX_POOL_CONNS=32 sql-proxy
 ```
 
 or install it as a systemd service with install.sh script. Parameters may be changed later in sql-proxy.service file.

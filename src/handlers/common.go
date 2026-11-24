@@ -8,6 +8,7 @@ import (
 	"sql-proxy/src/db"
 )
 
+// Shape of a normal response. Clients depend on this — don't break it lightly
 type ResponseEnvelope struct {
 	ApiVersion     string           `json:"api_version"`
 	ConnectionId   string           `json:"connection_id"`
@@ -17,12 +18,14 @@ type ResponseEnvelope struct {
 	Rows           []map[string]any `json:"rows"`
 }
 
+// Same idea, but for the moments things go wrong (they do)
 type ErrorEnvelope struct {
 	ApiVersion string `json:"api_version"`
 	Error      string `json:"error"`
 	Status     int    `json:"status"`
 }
 
+// Gatekeeper for every endpoint: the API-Version header must match or you get 501 and a polite goodbye
 func checkApiVersion(w http.ResponseWriter, r *http.Request) bool {
 
 	apiVersion := r.Header.Get("API-Version")
@@ -43,6 +46,7 @@ func checkApiVersion(w http.ResponseWriter, r *http.Request) bool {
 
 }
 
+// Central place to log an error and ship the standard JSON envelope out. One format for all our failures
 func errorResponce(w http.ResponseWriter, message string, httpStatus int) {
 
 	app.Logger.Error(message)
@@ -57,7 +61,8 @@ func errorResponce(w http.ResponseWriter, message string, httpStatus int) {
 
 }
 
-func tableResponce(w http.ResponseWriter, rows *sql.Rows) {
+// Take a result set and pack it into the envelope our clients expect
+func tableResponce(w http.ResponseWriter, connId string, rows *sql.Rows) {
 
 	columns, err := rows.Columns()
 	if err != nil {
@@ -69,6 +74,7 @@ func tableResponce(w http.ResponseWriter, rows *sql.Rows) {
 
 	var envelope ResponseEnvelope
 	envelope.ApiVersion = app.ApiVersion
+	envelope.ConnectionId = connId
 	envelope.RowsCount = rowsCount
 	envelope.ExceedsMaxRows = exceedsMaxRows
 	envelope.Rows = *tableData
@@ -78,7 +84,7 @@ func tableResponce(w http.ResponseWriter, rows *sql.Rows) {
 
 }
 
-// Converts SQL query result to JSON array
+// Walk the result set row by row and cut it at MaxRows — that's why big queries end up with exceeds flag set. We mean well
 func convertRows(rows *sql.Rows, columns *[]string) (*[]map[string]any, uint32, bool) {
 
 	var rowsCount uint32 = 0
@@ -105,7 +111,7 @@ func convertRows(rows *sql.Rows, columns *[]string) (*[]map[string]any, uint32, 
 			}
 			entry[col] = v
 		}
-		if rowsCount > db.MaxRows {
+		if rowsCount >= db.MaxRows {
 			exceedsMaxRows = true
 			break
 		}

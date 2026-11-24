@@ -1,62 +1,71 @@
 package db
 
 import (
-	"bytes"
+	"context"
 	"database/sql"
 	"fmt"
 	"net/url"
-	"sql-proxy/src/app"
-
+	"sync"
+	"sync/atomic"
 	"time"
+
+	"sql-proxy/src/app"
 
 	"github.com/google/uuid"
 )
 
+// Returned when the pool is full — callers should map it to HTTP 429, not a plain error
 var ErrConnectionLimit = fmt.Errorf("connection pool limit reached")
 
-// Init map
+const (
+	createPingTimeout = 10 * time.Second // How long we wait for a ping when opening a new DB. Enough, really
+	maintenanceIdle   = 20 * time.Minute // Unused longer than this and the connection gets tossed from the pool
+	pingCheckTimeout  = 3 * time.Second  // Per-connection liveness check during the maintenance sweep
+)
+
+// Initialize our internal maps — call once before anything else, please
 func (o *DbList) Init() {
 
-	items := make(map[string]DbConn)
-	o.items = items
+	o.items = make(map[string]*DbConn)
+	o.byHash = make(map[[32]byte]string)
 
 }
 
-// Returns current pool size
+// Bump the "last used" stamp without grabbing the lock — hot paths must stay fast
+func (c *DbConn) touch() { atomic.StoreInt64(&c.Timestamp, time.Now().UnixNano()) }
+
+// Read back what touch() wrote. Atomic read — no lock needed here either
+func (c *DbConn) lastUsed() time.Time { return time.Unix(0, atomic.LoadInt64(&c.Timestamp)) }
+
+// How many connections are currently pooled — mostly for the metrics folks
 func (o *DbList) Size() int {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 	return len(o.items)
 }
 
-// Gets SQL server connection by GUID
+// Look up a connection by its id, and optionally refresh the "last used" stamp on the way out
 func (o *DbList) GetById(id string, updateTimestamp bool) (*sql.DB, bool) {
 
-	if updateTimestamp {
-		o.mu.Lock()
-		defer o.mu.Unlock()
+	o.mu.RLock()
+	dbConn, ok := o.items[id]
+	o.mu.RUnlock()
 
-		if dbConn, ok := o.items[id]; ok {
-			dbConn.Timestamp = time.Now()
-			o.items[id] = dbConn
-			return dbConn.DB, true
-		}
-	} else {
-		o.mu.RLock()
-		defer o.mu.RUnlock()
-
-		if dbConn, ok := o.items[id]; ok {
-			return dbConn.DB, true
-		}
+	if !ok {
+		app.Logger.Errorf("SQL connection with guid='%s' not found", id)
+		return nil, false
 	}
 
-	app.Logger.Errorf("SQL connection with guid='%s' not found", id)
-	return nil, false
+	if updateTimestamp {
+		dbConn.touch()
+	}
+
+	return dbConn.DB, true
 
 }
 
-// Gets the new SQL server connection with parameters given.
-// First lookups in pool, if fails opens new one and returns GUID value
+// Find a connection in the pool or open a new one. 
+// Same params → same backend, never duplicates — that's the whole point
 func (o *DbList) GetByParams(connInfo *DbConnInfo) (string, error) {
 	hash, err := connInfo.GetHash()
 	if err != nil {
@@ -64,53 +73,39 @@ func (o *DbList) GetByParams(connInfo *DbConnInfo) (string, error) {
 		return "", fmt.Errorf("hash calculation failed")
 	}
 
-	guid := ""
-
 	o.mu.RLock()
+	guid, ok := o.byHash[hash]
+	if ok {
 
-	for key, dbConn := range o.items {
-
-		// Search existing connection by hash to reuse
-		if bytes.Equal(dbConn.Hash[:], hash[:]) {
-			guid = key
-			app.Logger.Debugf("DB connection with id %s found in the pool", guid)
-
-			// Perform checks
-			if err = dbConn.DB.Ping(); err == nil {
-				o.mu.RUnlock()
-				// Everything is ok, return guid
-				return guid, nil
-			} else {
-				// Bad connection, need to clean
-				o.mu.RUnlock()
-				o.mu.Lock()
-				delete(o.items, guid)
-				o.mu.Unlock()
-				o.mu.RLock()
-				app.Logger.Debugf("DB connection with id %s is dead and removed from the pool", guid)
-			}
-		}
+		o.items[guid].touch()
 	}
-
 	o.mu.RUnlock()
 
-	// At this step nothing found, create the new
+	if ok {
+		app.Logger.Debugf("DB connection with id %s found in the pool", guid)
+		return guid, nil
+	}
+
 	return o.getNewConnection(connInfo, hash)
 }
 
-// Creates the new SQL connection regarding concurrency
+// The slow path: build a DSN, connect for real, ping until we're sure it's alive.
+// Pray the database is up — this is where everything goes when nothing else works
 func (o *DbList) getNewConnection(connInfo *DbConnInfo, hash [32]byte) (string, error) {
 
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	// Check connection pool limit
+	if guid, ok := o.byHash[hash]; ok {
+		app.Logger.Debugf("DB connection with id %s was created concurrently", guid)
+		return guid, nil
+	}
+
 	if len(o.items) >= MaxConnections {
 		app.Logger.Errorf("Connection pool limit reached: %d", MaxConnections)
 		return "", ErrConnectionLimit
 	}
 
-	// Prepare DSN string
 	var dsn string
 
 	encodedPassword := url.QueryEscape(connInfo.Password)
@@ -135,33 +130,37 @@ func (o *DbList) getNewConnection(connInfo *DbConnInfo, hash [32]byte) (string, 
 		return "", fmt.Errorf("%s", errMsg)
 	}
 
-	// Open new SQL server connection
 	var err error
 	var newDb *sql.DB
 
 	newDb, err = sql.Open(connInfo.DbType, dsn)
 
-	// Check for failure
 	if err != nil {
 		app.Logger.Errorf("Error establishing SQL server connection: %v", err)
 		return "", fmt.Errorf("error establishing SQL server connection")
 	}
 
-	// Check if alive
-	if err = newDb.Ping(); err != nil {
+	newDb.SetMaxOpenConns(MaxPoolConns)
+	newDb.SetConnMaxLifetime(time.Hour)
+	newDb.SetConnMaxIdleTime(15 * time.Minute)
+
+	pingCtx, cancel := context.WithTimeout(context.Background(), createPingTimeout)
+	err = newDb.PingContext(pingCtx)
+	cancel()
+
+	if err != nil {
+		newDb.Close()
 		app.Logger.Errorf("Just created SQL connection is dead: %v", err)
 		return "", fmt.Errorf("error establishing SQL server connection")
 	}
 
-	// Insert into pool
 	newId := uuid.New().String()
-	newItem := DbConn{
+	o.items[newId] = &DbConn{
 		Hash:      hash,
 		DB:        newDb,
-		Timestamp: time.Now(),
+		Timestamp: time.Now().UnixNano(),
 	}
-
-	o.items[newId] = newItem
+	o.byHash[hash] = newId
 
 	app.Logger.Debugf("New SQL connection with id %s was added to the pool: "+
 		"Host=%s, Port=%d, dbName=%s, user=%s, dbType=%s, Id=%s",
@@ -177,25 +176,37 @@ func (o *DbList) getNewConnection(connInfo *DbConnInfo, hash [32]byte) (string, 
 	return newId, nil
 }
 
-// Deletes SQL server connection
+// Kill the connection and everything inside it (prepared statements included). No leftovers allowed
 func (o *DbList) Delete(id string) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
+	conn, ok := o.items[id]
+	if !ok {
+		return
+	}
+
+	for _, stmt := range conn.Stmt {
+		stmt.Stmt.Close()
+	}
+	conn.DB.Close()
+
 	delete(o.items, id)
+	if o.byHash[conn.Hash] == id {
+		delete(o.byHash, conn.Hash)
+	}
+
 	app.Logger.Debugf("DB connection with id %s was deleted by query", id)
 
 }
 
-// *** SQL prepared statements ***
-
-// Saves SQL prepared statement
+// Save a prepared statement under the connection and hand back its new id — hold onto it, you'll need it
 func (o *DbList) PutPreparedStatement(id string, stmt *sql.Stmt) (string, bool) {
 
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	dbConn, ok := o.items[id]
+	conn, ok := o.items[id]
 	if !ok {
 		return "", false
 	}
@@ -207,48 +218,46 @@ func (o *DbList) PutPreparedStatement(id string, stmt *sql.Stmt) (string, bool) 
 		Timestamp: time.Now(),
 	}
 
-	dbConn.Timestamp = time.Now()
-	dbConn.Stmt = append(dbConn.Stmt, dbStmt)
-	o.items[id] = dbConn
+	conn.Stmt = append(conn.Stmt, dbStmt)
+	conn.touch()
 
 	return newId, true
 }
 
-// Gets SQL prepared statement
+// Fetch a saved prepared statement by its id — or not. That's how it is sometimes
 func (o *DbList) GetPreparedStatement(connId, stmtId string) (*sql.Stmt, bool) {
 
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
-	dbConn, ok := o.items[connId]
+	conn, ok := o.items[connId]
 	if !ok {
 		return nil, false
 	}
 
-	for i := range dbConn.Stmt {
-		if dbConn.Stmt[i].Id == stmtId {
-			return dbConn.Stmt[i].Stmt, true
+	for i := range conn.Stmt {
+		if conn.Stmt[i].Id == stmtId {
+			return conn.Stmt[i].Stmt, true
 		}
 	}
 	return nil, false
 }
 
-// Closes and deletes SQL prepared statement
+// Close the saved prepared statement and drop it from our list forever
 func (o *DbList) ClosePreparedStatement(connId, stmtId string) bool {
 
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	dbConn, ok := o.items[connId]
+	conn, ok := o.items[connId]
 	if !ok {
 		return false
 	}
 
-	for i, stmt := range dbConn.Stmt {
+	for i, stmt := range conn.Stmt {
 		if stmt.Id == stmtId {
 			stmt.Stmt.Close()
-			dbConn.Stmt = append(dbConn.Stmt[:i], dbConn.Stmt[i+1:]...)
-			o.items[connId] = dbConn
+			conn.Stmt = append(conn.Stmt[:i], conn.Stmt[i+1:]...)
 			return true
 		}
 	}
@@ -257,8 +266,8 @@ func (o *DbList) ClosePreparedStatement(connId, stmtId string) bool {
 
 }
 
-// *** Maintenance ***
-
+// The background janitor. Runs every 2 minutes, tosses idle or dead connections and their
+// abandoned statements — the only reason we don't leak everything. Don't kill this goroutine
 func (o *DbList) RunMaintenance() {
 	ticker := time.NewTicker(2 * time.Minute)
 	defer ticker.Stop()
@@ -266,51 +275,83 @@ func (o *DbList) RunMaintenance() {
 	for {
 		<-ticker.C
 
-		// detect dead connections
-		var deadItems []string
-		var countConn, countDeadConn, countStmt int
+		o.mu.RLock()
+		snapshot := make(map[string]*DbConn, len(o.items))
+		for id, conn := range o.items {
+			snapshot[id] = conn
+		}
+		countConn := len(snapshot)
+		o.mu.RUnlock()
+
+		deadCh := make(chan string, len(snapshot))
+		var wg sync.WaitGroup
+
+		for id, conn := range snapshot {
+			if time.Since(conn.lastUsed()) > maintenanceIdle {
+
+				deadCh <- id
+				continue
+			}
+
+			wg.Add(1)
+			go func(id string, db *sql.DB) {
+				defer wg.Done()
+				ctx, cancel := context.WithTimeout(context.Background(), pingCheckTimeout)
+				defer cancel()
+				if err := db.PingContext(ctx); err != nil {
+					deadCh <- id
+				}
+			}(id, conn.DB)
+		}
+
+		wg.Wait()
+		close(deadCh)
+
+		deadSet := make(map[string]bool, len(deadCh))
+		for id := range deadCh {
+			deadSet[id] = true
+		}
+
+		var countDeadConn, countStmt int
 
 		o.mu.Lock()
 
-		for key, dbConn := range o.items {
-			countConn++
-
-			isDead := false
-			if err := dbConn.DB.Ping(); err != nil {
-				// dead connection
-				deadItems = append(deadItems, key)
-				countDeadConn++
-				isDead = true
-			} else if time.Since(dbConn.Timestamp).Abs().Minutes() > 20 {
-				// connection not used for last 20 minutes
-				deadItems = append(deadItems, key)
-				countDeadConn++
-				isDead = true
+		for id, conn := range snapshot {
+			if _, ok := o.items[id]; !ok {
+				continue
+			}
+			if deadSet[id] {
+				continue
 			}
 
-			// Close and remove expired prepared statements
-			activeStmts := make([]DbStmt, 0, len(dbConn.Stmt))
-			for _, stmt := range dbConn.Stmt {
-				if time.Since(stmt.Timestamp).Abs().Minutes() > 20 {
+			activeStmts := make([]DbStmt, 0, len(conn.Stmt))
+			for _, stmt := range conn.Stmt {
+				if time.Since(stmt.Timestamp) > maintenanceIdle {
 					stmt.Stmt.Close()
 					countStmt++
 				} else {
 					activeStmts = append(activeStmts, stmt)
 				}
 			}
-			dbConn.Stmt = activeStmts
-
-			// Update connection in pool (without timestamp change)
-			if !isDead {
-				o.items[key] = dbConn
-			}
+			conn.Stmt = activeStmts
 		}
 
-		// remove dead connections
-		for _, item := range deadItems {
-			dbConn := o.items[item]
-			dbConn.DB.Close()
-			delete(o.items, item)
+		for id := range deadSet {
+			conn, ok := o.items[id]
+			if !ok {
+				continue
+			}
+
+			for _, stmt := range conn.Stmt {
+				stmt.Stmt.Close()
+			}
+			conn.DB.Close()
+
+			delete(o.items, id)
+			if o.byHash[conn.Hash] == id {
+				delete(o.byHash, conn.Hash)
+			}
+			countDeadConn++
 		}
 
 		o.mu.Unlock()

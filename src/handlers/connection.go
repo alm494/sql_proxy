@@ -7,6 +7,7 @@ import (
 	"sql-proxy/src/db"
 )
 
+// Open (or quietly reuse) a database connection and hand its id back as plain text in the body
 func CreateConnection(w http.ResponseWriter, r *http.Request) {
 
 	var dbConnInfo db.DbConnInfo
@@ -36,6 +37,7 @@ func CreateConnection(w http.ResponseWriter, r *http.Request) {
 
 }
 
+// Drop the connection pointed to by the Connection-Id header. No second chances
 func CloseConnection(w http.ResponseWriter, r *http.Request) {
 
 	if ok := checkApiVersion(w, r); !ok {

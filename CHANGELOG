@@ -1,3 +1,7 @@
+1.5.0:
+
+ - Performance: Significant improvements to eliminate bottlenecks and increase speed. Validated via 67 functional tests and high-load testing, ensuring stability with no race conditions during heavy concurrent database and client connections.
+
 1.4.5:
 
  - Fix: systemd support improved

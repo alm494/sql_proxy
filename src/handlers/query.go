@@ -8,6 +8,7 @@ import (
 	"sql-proxy/src/db"
 )
 
+// Run an ad-hoc SELECT and send the result set back in our envelope format — simple as that
 func SelectQuery(w http.ResponseWriter, r *http.Request) {
 
 	if ok := checkApiVersion(w, r); !ok {
@@ -32,10 +33,11 @@ func SelectQuery(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	tableResponce(w, rows)
+	tableResponce(w, connId, rows)
 
 }
 
+// Same thing but for statements that don't return anything — empty body on success is a feature
 func ExecuteQuery(w http.ResponseWriter, r *http.Request) {
 
 	if ok := checkApiVersion(w, r); !ok {
@@ -60,6 +62,7 @@ func ExecuteQuery(w http.ResponseWriter, r *http.Request) {
 
 }
 
+// Read the Connection-Id header plus raw SQL from the body — both must show up or we stop right there
 func parseQueryHttpHeadersAndBody(w http.ResponseWriter, r *http.Request) (string, string, bool) {
 
 	connId := r.Header.Get("Connection-Id")
